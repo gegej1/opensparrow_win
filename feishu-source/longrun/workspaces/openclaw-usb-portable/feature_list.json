@@ -1,0 +1,116 @@
+[
+  {
+    "id": "F-001",
+    "priority": 1,
+    "category": "functional",
+    "component": "installer-script",
+    "description": "提供一个本地一键脚本，安装并配置 OpenClaw + Feishu，并隔离默认 profile。",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "脚本可执行且在缺少参数时明确失败。",
+      "脚本完成后 OpenClaw daemon 运行。",
+      "脚本输出验证命令和证据目录。",
+      "隔离 profile 使用独立 state/workspace/port。"
+    ],
+    "steps": [
+      "准备 FEISHU_APP_ID/FEISHU_APP_SECRET/OPENAI_API_KEY 环境变量或交互输入。",
+      "执行 install-local-feishu.sh。",
+      "检查 health、daemon status、channels probe、agent smoke。"
+    ],
+    "evidence_hint": "终端日志 + health.json + channels probe + agent smoke 输出",
+    "risk": "medium",
+    "passes": true
+  },
+  {
+    "id": "F-002",
+    "priority": 1,
+    "category": "functional",
+    "component": "skill-doc",
+    "description": "沉淀可复用 Skill，覆盖安装、验证、排障、隔离与收口。",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "文档含前置条件、步骤、验收、排障、收口。",
+      "不包含任何真实密钥。",
+      "新成员可按文档完成复刻。"
+    ],
+    "steps": [
+      "编写 skills/openclaw-local-feishu-usb/SKILL.md。",
+      "补充命令级验证点与 evidence 目录。",
+      "执行人工走查。"
+    ],
+    "evidence_hint": "Skill 文档审阅记录",
+    "risk": "low",
+    "passes": true
+  },
+  {
+    "id": "F-003",
+    "priority": 2,
+    "category": "functional",
+    "component": "usb-sop",
+    "description": "形成 U 盘交付 SOP 与 staging 包，明确可行与不可行边界。",
+    "depends_on": [
+      "F-001",
+      "F-002"
+    ],
+    "acceptance_criteria": [
+      "SOP 清楚说明 USB 自动运行限制。",
+      "给出 macOS/Windows 手动启动路径。",
+      "给出交付目录结构。",
+      "staging 包可被拷贝到 U 盘。"
+    ],
+    "steps": [
+      "整理系统限制与替代路径。",
+      "产出 SOP、来源文档与双平台入口。",
+      "构建 staging 交付目录。"
+    ],
+    "evidence_hint": "SOP.md + SOURCES.md + staging tree",
+    "risk": "low",
+    "passes": true
+  },
+  {
+    "id": "F-004",
+    "priority": 2,
+    "category": "quality",
+    "component": "security-hardening",
+    "description": "补充联调后收口策略，并提供实际收口脚本与验证证据。",
+    "depends_on": [
+      "F-001"
+    ],
+    "acceptance_criteria": [
+      "文档包含从 open 到 pairing/allowlist 的收口步骤。",
+      "收口步骤有验证命令。",
+      "实跑后 probe 仍为 works。"
+    ],
+    "steps": [
+      "在 Skill 与 SOP 中加入收口章节。",
+      "提供 harden-local-feishu.sh。",
+      "记录配置前后状态对比。"
+    ],
+    "evidence_hint": "配置前后状态对比 + hardening evidence",
+    "risk": "medium",
+    "passes": true
+  },
+  {
+    "id": "F-005",
+    "priority": 1,
+    "category": "reliability",
+    "component": "ui-install-reset",
+    "description": "修复 UI 安装态误判与清理语义不完整问题，确保可回到初始安装向导。",
+    "depends_on": [],
+    "acceptance_criteria": [
+      "仅有残留 openclaw.json 时不得自动跳 Dashboard。",
+      "全量清理后 profile state/service/workspace 被移除。",
+      "双击入口默认走 UI-first，不再触发 CLI 凭据交互。",
+      "清理后刷新页面可回安装向导。"
+    ],
+    "steps": [
+      "修复 /api/status 的 daemon 状态解析与 installed 判定。",
+      "新增或升级全量重置接口（service/state/workspace）。",
+      "前端区分轻量清理与全量重置并补充回跳逻辑。",
+      "更新入口脚本与 README/SOP 的推荐路径。"
+    ],
+    "evidence_hint": "status/cleanup/reset API 回归记录 + 页面跳转录屏/日志 + dry-run 清理输出",
+    "risk": "high",
+    "passes": true
+  }
+]

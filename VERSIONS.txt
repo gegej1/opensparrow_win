@@ -1,0 +1,9 @@
+bundle_scope=feishu-only-local-usb
+windows_arch=x64
+bundled_node_version=v23.11.0
+system_node_version=v23.11.0
+npm_version=10.9.2
+openclaw_version=2026.3.7
+openclaw_runtime_source=npm-global snapshot
+usb_pack_dir=./usb-pack
+feishu_source_dir=./feishu-source

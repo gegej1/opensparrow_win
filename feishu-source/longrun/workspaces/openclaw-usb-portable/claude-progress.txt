@@ -1,0 +1,123 @@
+# Progress Log (Longrun Standard v2)
+
+## Session 1 (Initializer)
+- Date: 2026-03-09
+- Goal: 建立 OpenClaw 本地 U 盘部署的执行资产与拆分框架
+- Workspace path: longrun/workspaces/openclaw-usb-portable
+- Project root: /Users/eduardogan/Desktop/GHJProject/openclawtest
+- What was created: app_spec/feature_list/init.sh 填充完成
+- Feature list scope summary: installer-script, skill-doc, usb-sop, security-hardening
+- Verification evidence: bash -n scripts/openclaw-usb/install-local-feishu.sh
+- Progress snapshot: 0/4 passing
+- Next feature candidate: F-001
+
+## Session 2 (Execution & Polish)
+- Date: 2026-03-09
+- Goal: 完成隔离 profile 的实跑、补齐双平台交付入口、生成 staging 包并回写证据
+- Selected feature id: F-001 ~ F-004
+- Changes made: 新增 `execution/` 完全隔离执行目录；重写安装脚本为 isolated profile/workspace/port 模式；新增收口脚本；补齐 macOS `.command` 与 Windows `.cmd`/`.ps1` 入口；新增 staging 包构建脚本；回写 Skill/SOP/spec/plan/tasks
+- Regression checks: `bash -n scripts/openclaw-usb/install-local-feishu.sh`；`bash -n scripts/openclaw-usb/harden-local-feishu.sh`；`bash longrun/workspaces/openclaw-usb-portable/execution/scripts/build-delivery-pack.sh`
+- End-to-end verification evidence: `longrun/workspaces/openclaw-usb-portable/execution/evidence/f001-local-defaults-20260309-205431/`；`longrun/workspaces/openclaw-usb-portable/execution/evidence/f004-hardening-20260309-205540/`
+- Known risks: 当前机器未安装 `pwsh`，Windows 入口已交付但尚未在 Windows 主机上实机点击验证；飞书人工发送 `ok` 未由脚本自动采集截图
+- Open questions: Windows 目标机统一采用 Git Bash 还是 WSL 作为 Bash 运行时
+- Next feature candidate: 交付包上 U 盘做一次跨机验证
+- Progress snapshot: 4/4 passing
+
+## Session 3 (Feishu-only Export Policy)
+- Date: 2026-03-09
+- Goal: 将导出范围收敛为 Feishu-only，明确排除 Notion/VPS 内容
+- Selected feature id: Delivery export scope
+- Changes made: 新增 `docs/package-boundary.md`；`build-delivery-pack.sh` 明确 Feishu-only；`create-mac-handoff-copy.sh` 改为导出 `feishu-source/` 而非整仓库快照
+- Regression checks: staging 包重建；导出目录结构检查；确认未包含 `specs/003-feishu-notion-sync`、`scripts/openclaw-notion/`、`research/openclaw-feishu-notion/`
+- End-to-end verification evidence: 即将生成新的 `mac-feishu-usb-copy-*` 导出目录
+- Known risks: 旧版 `mac-usb-copy-*` 导出目录仍在磁盘上，但后续应使用新的 Feishu-only 副本
+- Open questions: Windows 导出是否也需要单独生成 Feishu-only 副本
+- Next feature candidate: 重打新的 Mac Feishu-only 导出副本
+- Progress snapshot: 4/4 passing + export scope narrowed
+
+## Handoff quickstart
+- Init command: ./longrun/workspaces/openclaw-usb-portable/init.sh
+- Install command: bash scripts/openclaw-usb/install-local-feishu.sh --profile usb-portable --port 18889
+- Harden command: bash scripts/openclaw-usb/harden-local-feishu.sh --profile usb-portable --dm-policy pairing --allow-from-json '[]' --require-mention true
+- Build pack command: bash longrun/workspaces/openclaw-usb-portable/execution/scripts/build-delivery-pack.sh
+- Smoke test command: openclaw --profile usb-portable channels status --probe
+- App start command: openclaw --profile usb-portable daemon restart
+- Blockers (if any): 若使用 handoff copy，目标机无需预装 node/npm；若直接跑仓库脚本则仍需本机 node/npm；模型网络连通性可能受限；Windows 主机实机验证仍待补齐
+- Notes for next session: 优先在真实 Windows x64 主机上用 `windows/run-openclaw-usb.cmd` 和 `windows/harden-openclaw-usb.cmd` 各跑一遍；若目标机是 ARM64，先重导 Windows handoff copy
+
+## Session 4 (Relocation Recheck + Windows Native Delivery)
+- Date: 2026-03-09
+- Goal: 严格复查相对路径/搬家安装，并把 Windows 方案升级为原生 PowerShell + 平台专属 handoff copy
+- Selected feature id: F-001 ~ F-004（执行打磨）
+- Changes made: 修复 `scripts/openclaw-usb/install-local-feishu.sh` 在带空格路径下生成 OpenAI provider JSON 时的引号问题；使用复制到 `/tmp/OpenClaw USB Relocation Test 3/usb-pack` 的 handoff copy 完成一次真实 relocation 安装；新增 `scripts/openclaw-usb/install-local-feishu.ps1` 与 `harden-local-feishu.ps1`；Windows 入口改为原生 PowerShell；新增 `execution/docs/windows-native-delivery.md` 与 `create-windows-handoff-copy.sh`；刷新 Mac / Windows handoff copy
+- Regression checks: `bash -n scripts/openclaw-usb/install-local-feishu.sh`；`bash -n scripts/openclaw-usb/harden-local-feishu.sh`；`bash -n longrun/workspaces/openclaw-usb-portable/execution/scripts/build-delivery-pack.sh`；`bash -n longrun/workspaces/openclaw-usb-portable/execution/scripts/create-mac-handoff-copy.sh`；`bash -n longrun/workspaces/openclaw-usb-portable/execution/scripts/create-windows-handoff-copy.sh`；`bash longrun/workspaces/openclaw-usb-portable/execution/scripts/build-delivery-pack.sh`；`bash longrun/workspaces/openclaw-usb-portable/execution/scripts/create-windows-handoff-copy.sh`
+- End-to-end verification evidence: relocation 证据位于 `/tmp/OpenClaw USB Relocation Test 3/usb-pack/.openclaw-usb-runtime/evidence/20260309-224121-install/`；最新 Mac 导出为 `longrun/workspaces/openclaw-usb-portable/execution/export/mac-feishu-usb-copy-20260309-223344/`；最新 Windows 导出为 `longrun/workspaces/openclaw-usb-portable/execution/export/windows-feishu-usb-copy-20260309-230504/`
+- Known risks: 当前机器未安装 `pwsh`，PowerShell 脚本尚未在真实 Windows 主机上实机执行；Windows handoff copy 当前默认导出 `x64` 运行时，若目标机是 ARM64 需按架构重新导出
+- Open questions: Windows 目标机最终是 `x64` 还是 `ARM64`
+- Next feature candidate: 在真实 Windows 主机/U 盘链路上做一次手工安装与收口验收
+- Progress snapshot: 4/4 passing + relocation verified + Windows native package generated
+
+## Session 5 (Packaging Layer Cleanup)
+- Date: 2026-03-09
+- Goal: 在不改安装核心语义的前提下，整理 USB 执行层目录结构并降低导出脚本耦合
+- Selected feature id: Packaging structure polish
+- Changes made: 抽出 `execution/scripts/lib/export-common.sh` 复用 Mac/Windows 导出公共逻辑；新增 `execution/scripts/README.md` 与 `execution/export/README.md`；保留 `scripts/openclaw-usb/*` 安装/收口脚本不动，仅整理编排层
+- Regression checks: `bash -n longrun/workspaces/openclaw-usb-portable/execution/scripts/lib/export-common.sh`；`bash -n longrun/workspaces/openclaw-usb-portable/execution/scripts/create-mac-handoff-copy.sh`；`bash -n longrun/workspaces/openclaw-usb-portable/execution/scripts/create-windows-handoff-copy.sh`；`bash longrun/workspaces/openclaw-usb-portable/execution/scripts/build-delivery-pack.sh`；`bash longrun/workspaces/openclaw-usb-portable/execution/scripts/create-mac-handoff-copy.sh`；`bash longrun/workspaces/openclaw-usb-portable/execution/scripts/create-windows-handoff-copy.sh`
+- End-to-end verification evidence: `longrun/workspaces/openclaw-usb-portable/execution/export/mac-feishu-usb-copy-20260309-234101/`；`longrun/workspaces/openclaw-usb-portable/execution/export/windows-feishu-usb-copy-20260309-234207/`
+- Known risks: 仅做结构收敛，未改变核心安装行为；真实 Windows 主机验收仍待补齐
+- Next feature candidate: 如需继续，可把 staging 组装清单也进一步 manifest 化
+- Progress snapshot: packaging layer decoupled
+
+## Session 6 (UI Install/Reset Incident Investigation)
+- Date: 2026-03-10
+- Goal: 定位“新机自动跳 Dashboard / 清理后无法回安装页 / 入口仍出现命令行提问”三类问题的根因，并形成可执行改造方案（先调研不改功能）
+- Selected feature id: 003-opensparrow-ui-reset-hardening（规划阶段）
+- Investigation scope:
+  - 入口链路：mac 顶层入口与 legacy `usb-pack/mac/run-openclaw-usb.command`、Windows 顶层入口 `win/01-开始部署.cmd`
+  - 状态接口：`usb-pack/ui/server.mjs` `/api/status`
+  - 清理接口：`usb-pack/ui/server.mjs` `/api/cleanup`
+  - 前端跳转：`usb-pack/ui/public/index.html` `init()`
+- Repro commands (highlights):
+  - 构造“仅有 openclaw.json”profile 后请求 `/api/status`，实际返回 `installed:true`
+  - 调用 `/api/cleanup` 后再次请求 `/api/status`，仍返回 `installed:true`
+  - `openclaw daemon status --json` 实测无顶层 `status` 字段，仅有 `service.runtime.status`
+  - `openclaw uninstall --service --state --workspace --yes --non-interactive` 实测可完成全量重置
+- Confirmed root causes:
+  1) daemon 状态解析使用 `parsed.status ?? 'running'`，导致假阳性；
+  2) cleanup 只清服务/端口，不清 profile 状态目录；
+  3) 仍保留可触发 CLI 交互的旧入口（mac legacy 可直调、Windows 顶层当前仍默认 CLI）；
+  4) 所谓“硬编码”主要来自 profile 残留配置被 Dashboard 读取。
+- Analysis deliverables:
+  - 新 spec/plan/tasks：`specs/003-opensparrow-ui-reset-hardening/`
+  - 调研报告：`longrun/workspaces/openclaw-usb-portable/execution/docs/opensparrow-ui-install-reset-investigation-20260310.md`
+- Open questions:
+  - “全量重置”是否默认包含 skills 目录（`~/.claude/.codex`）删除，还是做可选项
+  - Dashboard 保留“轻量清理”与“全量重置”双按钮，还是只保留全量重置
+- Next feature candidate: 按 003 spec 执行实现与回归
+- Progress snapshot: Investigation complete, implementation pending
+
+## Session 7 (UI Install/Reset Hardening Implementation)
+- Date: 2026-03-10
+- Goal: 落地 003 方案：修复安装态误判、补齐全量重置、统一 UI-first 入口，并完成红黑回归
+- Selected feature id: F-005
+- Changes made:
+  - `usb-pack/ui/server.mjs`：新增 daemon 状态解析状态机（基于 `service.runtime.status/state` + `service.command`），移除 `parsed.status ?? 'running'` 假阳性路径；
+  - `usb-pack/ui/server.mjs`：新增 `POST /api/reset`（`openclaw uninstall --service --state --workspace --yes --non-interactive` + profile/workspace/skills 清理 + warnings）；
+  - `usb-pack/ui/public/dashboard.html`：保留轻量清理按钮，新增“全量重置”按钮，成功后跳转 `/?force=1`；
+  - `win/01-开始部署.cmd`：入口改为 UI-first（调用 `usb-pack/01-启动ClawBot管理界面.cmd`）；
+  - 更新 `README-FIRST.txt` 与 `usb-pack/README.txt`（mac/win）说明 UI-first 与 legacy CLI 入口边界。
+- Red/Black verification:
+  - Red（修复前基线）：残留 `openclaw.json` 场景 `GET /api/status` 返回 `installed:true`；`POST /api/cleanup` 后配置仍在；
+  - Black-1（状态机修复后）：残留配置场景返回 `installed:false` + `daemon:not_installed`；
+  - Black-2（全量重置）：`POST /api/reset` 后 profile/workspace/skills 目录被删除，`resetComplete:true`；
+  - Black-3（入口）：`win/01-开始部署.cmd` 静态检查已不再默认走 `windows/run-openclaw-usb.cmd`；
+  - Black-4（同步）：`mac/usb-pack/ui/server.mjs` 与 `win/usb-pack/ui/server.mjs`、`dashboard.html` 已逐字同步。
+- Regression checks:
+  - `runtime/node/bin/node --check mac/usb-pack/ui/server.mjs`
+  - `runtime/node/bin/node --check win/usb-pack/ui/server.mjs`
+  - API smoke: `/api/status`、`/api/reset`、`/api/cleanup`、`/dashboard`（HTTP 200）
+- Known risks:
+  - 当 18889 由外部进程持续占用时，`/api/reset` 会返回 `ok:true + warnings`，不阻塞“回到安装向导”，但需用户处理端口冲突。
+- Next feature candidate:
+  - 在真实 Windows 主机做一次 UI-first 全链路点击验收（入口 -> 安装 -> 全量重置 -> 回向导）
+- Progress snapshot: F-005 implementation complete, regression passed

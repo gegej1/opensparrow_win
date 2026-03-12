@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Open Sparrow 安装向导</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #F0F6FF;
+      color: #1D2B4E;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ===== Main wrapper ===== */
+    .wizard-wrapper {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      background:
+        radial-gradient(ellipse at 30% 20%, rgba(22,119,255,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse at 70% 80%, rgba(22,119,255,0.08) 0%, transparent 60%),
+        #F0F6FF;
+    }
+
+    /* ===== Wizard card ===== */
+    .glass-card {
+      background: white;
+      border: 1px solid #E0EEFF;
+      border-radius: 20px;
+      box-shadow: 0 8px 48px rgba(22, 119, 255, 0.1);
+      width: 100%;
+      max-width: 560px;
+      overflow: hidden;
+      position: relative;
+    }
+    .glass-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #60A5FA, #1677FF, #0958D9);
+    }
+
+    /* ===== Gold text ===== */
+    .brand-text {
+      background: linear-gradient(135deg, #1677FF, #0958D9);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 700;
+    }
+
+    /* ===== Step dots ===== */
+    .step-dot-active {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1677FF, #1677FF);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(22, 119, 255, 0.4);
+      flex-shrink: 0;
+    }
+    .step-dot-done {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #D1FAE5;
+      color: #065F46;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-dot-inactive {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: #EBF3FF;
+      color: #6B7A99;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-line { height: 1px; flex: 1; background: #E0EEFF; }
+    .step-line-done { background: #1677FF; }
+
+    /* ===== Channel choice ===== */
+    .channel-card {
+      border: 2px solid #E0EEFF;
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: white;
+      text-align: left;
+    }
+    .channel-card:hover { border-color: #E0EEFF; background: #FFFBEB; }
+    .channel-card.selected {
+      border-color: #1677FF;
+      background: #FFFBEB;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    }
+
+    /* ===== Primary button ===== */
+    .blue-btn {
+      background: linear-gradient(135deg, #1677FF, #1677FF);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 32px;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 3px 12px rgba(22, 119, 255, 0.3);
+      width: 100%;
+      display: inline-block;
+    }
+    .blue-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #1677FF, #0958D9);
+      box-shadow: 0 6px 20px rgba(22, 119, 255, 0.4);
+      transform: translateY(-1px);
+    }
+    .blue-btn:active { transform: translateY(0); }
+    .blue-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* ===== Outline/back button ===== */
+    .nav-back-btn {
+      background: white;
+      color: #1677FF;
+      border: 1.5px solid #E0EEFF;
+      border-radius: 10px;
+      padding: 10px 24px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-back-btn:hover { background: #FFFBEB; border-color: #1677FF; }
+
+    /* ===== Input ===== */
+    .step-input {
+      background: white;
+      border: 1.5px solid #E0EEFF;
+      border-radius: 8px;
+      padding: 11px 14px;
+      color: #1D2B4E;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+    .step-input:focus {
+      border-color: #1677FF;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    }
+    .step-input::placeholder { color: #6B7A99; }
+
+    /* ===== Info box ===== */
+    .info-box {
+      background: #FFFBEB;
+      border: 1px solid #E0EEFF;
+      color: #0958D9;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+    }
+
+    /* ===== Summary box ===== */
+    .summary-box {
+      background: #FFFBEB;
+      border: 1px solid #E0EEFF;
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    /* ===== Task items ===== */
+    .task-pending  { background: #FAFAF9; border: 1px solid #EBF3FF; border-radius: 8px; }
+    .task-running  { background: #FFFBEB; border: 1px solid #E0EEFF; border-radius: 8px; }
+    .task-done     { background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; }
+    .task-error    { background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; }
+
+    /* ===== Step lines ===== */
+    .step-line-done { background: linear-gradient(90deg, #1677FF, #1677FF); }
+    .step-line-pending { background: #E0EEFF; }
+
+    /* ===== Gold link ===== */
+    .link-gold {
+      color: #1677FF;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .link-gold:hover { color: #0958D9; text-decoration: underline; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin 0.8s linear infinite; }
+
+    @keyframes pulse-amber {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body class="min-h-screen" x-data="wizard()" x-init="init()">
+
+  <div class="wizard-wrapper">
+    <div style="width:100%;max-width:560px">
+
+      <!-- Header -->
+      <div class="text-center mb-8 animate__animated animate__fadeInDown">
+        <div class="flex items-center justify-center gap-3 mb-3">
+          <img src="data:image/png;base64,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" width="40" height="40" style="border-radius:50%;object-fit:cover;" alt="Open Sparrow">
+          <h1 class="text-2xl font-bold brand-text">Open Sparrow</h1>
+        </div>
+        <p class="text-sm" style="color:#6B7A99">安装向导 · 按步骤完成配置，几分钟内完成部署</p>
+      </div>
+
+      <!-- Step Bar -->
+      <div class="flex items-center justify-center mb-8">
+        <template x-for="(label, i) in steps" :key="i">
+          <div class="flex items-center">
+            <div class="flex flex-col items-center">
+              <div
+                class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300"
+                :class="{
+                  'step-dot-active': currentStep === i + 1,
+                  'step-dot-done': currentStep > i + 1,
+                  'step-dot-inactive': currentStep < i + 1
+                }"
+              >
+                <span x-show="currentStep <= i + 1" x-text="i + 1"></span>
+                <span x-show="currentStep > i + 1">✓</span>
+              </div>
+              <span
+                class="text-xs mt-1 font-medium transition-colors duration-300"
+                :style="currentStep === i + 1 ? 'color:#1677FF' : 'color:#6B7A99'"
+                x-text="label"
+              ></span>
+            </div>
+            <div
+              x-show="i < steps.length - 1"
+              class="w-16 h-0.5 mx-1 mb-4 transition-all duration-500 rounded-full"
+              :class="currentStep > i + 1 ? 'step-line-done' : 'step-line-pending'"
+            ></div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Card Container -->
+      <div class="glass-card">
+
+        <!-- Step 1: Channel Selection -->
+        <div x-show="currentStep === 1" x-cloak class="p-8 animate__animated animate__fadeInUp">
+          <h2 class="text-xl font-bold mb-1" style="color:#1D2B4E">选择消息渠道</h2>
+          <p class="text-sm mb-6" style="color:#6B7A99">选择需要接入的机器人平台，可多选，也可跳过</p>
+
+          <div class="space-y-4">
+            <template x-for="ch in channelOptions" :key="ch.key">
+              <div
+                class="channel-card flex items-start gap-4 select-none"
+                :class="selectedChannels.includes(ch.key) ? 'selected' : ''"
+                @click="toggleChannel(ch.key)"
+              >
+                <span class="text-3xl mt-0.5" x-text="ch.icon"></span>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="font-semibold" style="color:#1D2B4E" x-text="ch.name"></span>
+                    <span
+                      x-show="selectedChannels.includes(ch.key)"
+                      style="color:#1677FF;font-weight:700"
+                    >✓</span>
+                  </div>
+                  <p class="text-sm mt-1" style="color:#6B7A99" x-text="ch.desc"></p>
+                </div>
+                <div
+                  class="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+                  :style="selectedChannels.includes(ch.key)
+                    ? 'border-color:#1677FF;background:#1677FF'
+                    : 'border-color:#D6D3D1;background:white'"
+                >
+                  <svg x-show="selectedChannels.includes(ch.key)" class="w-3 h-3" fill="white" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                  </svg>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <p class="text-xs mt-4 text-center" style="color:#6B7A99">
+            未选择任何渠道时，点击"下一步"可跳过此步骤
+          </p>
+        </div>
+
+        <!-- Step 2: Credentials -->
+        <div x-show="currentStep === 2" x-cloak class="p-8 animate__animated animate__fadeInUp">
+          <h2 class="text-xl font-bold mb-1" style="color:#1D2B4E">填写渠道凭证</h2>
+          <p class="text-sm mb-6" style="color:#6B7A99">根据选择的渠道填写对应的应用凭证</p>
+
+          <!-- No channels selected notice -->
+          <div x-show="selectedChannels.length === 0" class="text-center py-10" style="color:#6B7A99">
+            <div class="text-4xl mb-3">⏭️</div>
+            <p class="font-medium" style="color:#6B7A99">未选择任何渠道</p>
+            <p class="text-sm mt-1">点击"下一步"继续配置 API</p>
+          </div>
+
+          <!-- Feishu Form -->
+          <div x-show="selectedChannels.includes('feishu')" class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <span class="text-2xl">🐦</span>
+                <h3 class="font-bold" style="color:#1D2B4E">飞书 / Lark</h3>
+              </div>
+              <a href="https://open.feishu.cn/app" target="_blank" class="text-xs link-gold flex items-center gap-1">
+                如何获取？ ↗
+              </a>
+            </div>
+            <div class="info-box mb-4">
+              在飞书开放平台创建企业自建应用，开通机器人能力，启用长连接接收事件
+            </div>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">App ID</label>
+                <p class="text-xs mb-1" style="color:#6B7A99">应用凭证 → 应用ID</p>
+                <input type="text" x-model="credentials.feishu.appId"
+                       placeholder="cli_xxxxxxxxxxxxxxxx"
+                       class="step-input" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">App Secret</label>
+                <p class="text-xs mb-1" style="color:#6B7A99">应用凭证 → 应用Secret</p>
+                <input type="password" x-model="credentials.feishu.appSecret"
+                       placeholder="••••••••••••••••"
+                       class="step-input" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Dingtalk Form -->
+          <div x-show="selectedChannels.includes('dingtalk')" class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <span class="text-2xl">📎</span>
+                <h3 class="font-bold" style="color:#1D2B4E">钉钉</h3>
+              </div>
+              <a href="https://open.dingtalk.com" target="_blank" class="text-xs link-gold flex items-center gap-1">
+                如何获取？ ↗
+              </a>
+            </div>
+            <div class="info-box mb-4">
+              在钉钉开放平台创建企业内部应用，添加机器人能力，消息接收模式选 Stream 模式
+            </div>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppKey</label>
+                <p class="text-xs mb-1" style="color:#6B7A99">即 clientId</p>
+                <input type="text" x-model="credentials.dingtalk.clientId"
+                       placeholder="dingxxxxxxxxxxxxxxxx"
+                       class="step-input" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppSecret</label>
+                <p class="text-xs mb-1" style="color:#6B7A99">即 clientSecret</p>
+                <input type="password" x-model="credentials.dingtalk.clientSecret"
+                       placeholder="••••••••••••••••"
+                       class="step-input" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Wecom Form -->
+          <div x-show="selectedChannels.includes('wecom')" class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <span class="text-2xl">💼</span>
+                <h3 class="font-bold" style="color:#1D2B4E">企业微信</h3>
+              </div>
+              <a href="https://work.weixin.qq.com/wework_admin/frame" target="_blank" class="text-xs link-gold flex items-center gap-1">
+                如何获取？ ↗
+              </a>
+            </div>
+            <div class="info-box mb-4">
+              在企微管理后台 → 应用管理 → 智能机器人，创建应用选 API 模式 + 长连接
+            </div>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">Bot ID</label>
+                <input type="text" x-model="credentials.wecom.botId"
+                       placeholder="ww_xxxxxxxxxxxxxxxx"
+                       class="step-input" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">Bot Secret</label>
+                <input type="password" x-model="credentials.wecom.secret"
+                       placeholder="••••••••••••••••"
+                       class="step-input" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: API Config -->
+        <div x-show="currentStep === 3" x-cloak class="p-8 animate__animated animate__fadeInUp">
+          <h2 class="text-xl font-bold mb-1" style="color:#1D2B4E">API 配置</h2>
+          <p class="text-sm mb-6" style="color:#6B7A99">配置 OpenAI 兼容接口，支持国内中转和自建代理</p>
+
+          <div class="info-box mb-6">
+            支持任意 OpenAI 兼容接口，包括 Azure、国内中转等
+          </div>
+
+          <div class="space-y-5">
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">Base URL</label>
+              <input type="text" x-model="apiConfig.baseUrl"
+                     placeholder="https://api.openai.com/v1 或你的中转地址"
+                     class="step-input" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">API Key</label>
+              <input type="password" x-model="apiConfig.apiKey"
+                     placeholder="sk-••••••••••••••••••••••••"
+                     class="step-input" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">模型名称</label>
+              <input type="text" x-model="apiConfig.model"
+                     placeholder="gpt-4o-mini"
+                     class="step-input" />
+              <p class="text-xs mt-1" style="color:#6B7A99">默认：gpt-4o-mini</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Install Progress -->
+        <div x-show="currentStep === 4" x-cloak class="p-8 animate__animated animate__fadeInUp">
+          <h2 class="text-xl font-bold mb-1" style="color:#1D2B4E">安装</h2>
+          <p class="text-sm mb-6" style="color:#6B7A99">确认配置信息，点击开始安装</p>
+
+          <!-- Pre-install summary -->
+          <div x-show="!installStarted" class="space-y-4">
+            <div class="summary-box space-y-3">
+              <h3 class="text-sm font-semibold uppercase tracking-wide" style="color:#0958D9">配置摘要</h3>
+              <div class="flex items-start gap-2 text-sm">
+                <span class="w-20 flex-shrink-0" style="color:#6B7A99">渠道</span>
+                <span class="font-medium" style="color:#1D2B4E" x-text="selectedChannels.length === 0 ? '未选择（跳过）' : selectedChannels.map(k => channelMap[k]).join('、')"></span>
+              </div>
+              <div class="flex items-start gap-2 text-sm">
+                <span class="w-20 flex-shrink-0" style="color:#6B7A99">Base URL</span>
+                <span class="font-medium truncate" style="color:#1D2B4E" x-text="apiConfig.baseUrl || '未填写'"></span>
+              </div>
+              <div class="flex items-start gap-2 text-sm">
+                <span class="w-20 flex-shrink-0" style="color:#6B7A99">模型</span>
+                <span class="font-medium" style="color:#1D2B4E" x-text="apiConfig.model || 'gpt-4o-mini'"></span>
+              </div>
+            </div>
+
+            <button
+              @click="startInstall()"
+              class="blue-btn"
+            >
+              开始安装
+            </button>
+          </div>
+
+          <!-- Install Progress -->
+          <div x-show="installStarted && !installDone && !installError" class="space-y-3 install-tasks-list">
+            <div class="rounded-xl p-4" style="background:#EBF3FF;border:1px solid #E0EEFF">
+              <div class="flex items-center gap-2 text-sm font-semibold" style="color:#1677FF">
+                <span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+                <span>正在部署中…</span>
+              </div>
+              <p class="text-xs mt-2" style="color:#6B7A99" x-text="installLoadingMessage"></p>
+            </div>
+            <template x-for="(task, i) in installTasks" :key="i">
+              <div class="flex items-center gap-3 p-3 transition-all"
+                   :class="{
+                     'task-running': task.status === 'running',
+                     'task-done': task.status === 'done',
+                     'task-error': task.status === 'error',
+                     'task-pending': task.status === 'pending'
+                   }">
+                <span class="text-xl flex-shrink-0">
+                  <span x-show="task.status === 'pending'">⏸️</span>
+                  <span x-show="task.status === 'running'" class="inline-block">⏳</span>
+                  <span x-show="task.status === 'done'">✅</span>
+                  <span x-show="task.status === 'error'">❌</span>
+                </span>
+                <span class="text-sm font-medium"
+                      :style="{
+                        'color': task.status === 'running' ? '#1677FF' :
+                                 task.status === 'done' ? '#16A34A' :
+                                 task.status === 'error' ? '#DC2626' : '#6B7A99'
+                      }"
+                      x-text="task.label">
+                </span>
+              </div>
+            </template>
+          </div>
+
+          <!-- Install Success -->
+          <div x-show="installDone" class="text-center py-6 animate__animated animate__bounceIn">
+            <div class="text-6xl mb-4">🎉</div>
+            <h3 class="text-xl font-bold mb-2" style="color:#16A34A">安装完成</h3>
+            <p class="text-sm mb-6" style="color:#6B7A99">Open Sparrow 已成功部署，所有服务正常运行</p>
+            <div
+              x-show="installWarnings.length > 0"
+              class="text-left rounded-xl p-4 mb-6"
+              style="background:#FFFBEB;border:1px solid #FDE68A"
+            >
+              <h4 class="text-sm font-semibold mb-2" style="color:#B45309">安装告警（不影响完成）</h4>
+              <template x-for="(warning, idx) in installWarnings" :key="idx">
+                <p class="text-xs mb-1" style="color:#92400E" x-text="'• ' + warning"></p>
+              </template>
+            </div>
+            <a href="/dashboard"
+               class="blue-btn"
+               style="display:inline-block;width:auto;padding:12px 32px;text-decoration:none">
+              进入管理面板 →
+            </a>
+          </div>
+
+          <!-- Install Error -->
+          <div x-show="installError" class="space-y-4">
+            <div class="rounded-xl p-5" style="background:#FEF2F2;border:1px solid #FECACA">
+              <div class="flex items-start gap-3">
+                <span class="text-2xl">❌</span>
+                <div>
+                  <h3 class="font-semibold mb-1" style="color:#DC2626">安装失败</h3>
+                  <p class="text-sm" style="color:#B91C1C" x-text="installErrorMsg"></p>
+                </div>
+              </div>
+            </div>
+            <button
+              @click="retryInstall()"
+              class="nav-back-btn w-full py-3"
+              style="border-color:#1677FF;color:#1677FF"
+              onmouseover="this.style.background='#FFFBEB'"
+              onmouseout="this.style.background='white'"
+            >
+              重试
+            </button>
+          </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="px-8 pb-8 flex justify-between gap-4" x-show="!(currentStep === 4 && installDone)">
+          <button
+            @click="prevStep()"
+            x-show="currentStep > 1 && !installStarted"
+            class="nav-back-btn"
+          >
+            ← 上一步
+          </button>
+          <div x-show="currentStep === 1 || installStarted" class="flex-1"></div>
+          <button
+            x-show="currentStep < 4"
+            @click="nextStep()"
+            class="blue-btn flex-1"
+            style="padding:10px 20px;font-size:14px"
+          >
+            下一步 →
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <p class="text-center text-xs mt-6" style="color:#C7B99A">Open Sparrow · OpenClaw 系列产品</p>
+
+    </div>
+  </div>
+
+  <script>
+    function wizard() {
+      return {
+        currentStep: 1,
+        steps: ['选择渠道', '填写凭证', 'API 配置', '安装'],
+
+        channelOptions: [
+          { key: 'feishu',   icon: '🐦', name: '飞书 / Lark', desc: '飞书/Lark 机器人，国内最完善' },
+          { key: 'dingtalk', icon: '📎', name: '钉钉',         desc: '钉钉企业机器人，Stream 长连接' },
+          { key: 'wecom',    icon: '💼', name: '企业微信',     desc: '企微智能机器人，长连接模式' },
+        ],
+
+        channelMap: { feishu: '飞书', dingtalk: '钉钉', wecom: '企业微信' },
+
+        selectedChannels: [],
+
+        credentials: {
+          feishu:   { appId: '', appSecret: '' },
+          dingtalk: { clientId: '', clientSecret: '' },
+          wecom:    { botId: '', secret: '' },
+        },
+
+        apiConfig: {
+          baseUrl: '',
+          apiKey: '',
+          model: 'gpt-4o-mini',
+        },
+
+        // Install state
+        installStarted: false,
+        installDone: false,
+        installError: false,
+        installErrorMsg: '',
+        installWarnings: [],
+        installLoadingMessage: '部署过程通常需要 1-2 分钟，请勿关闭页面。',
+
+        installTasks: [
+          { label: '安装渠道插件', status: 'pending' },
+          { label: '写入基础配置', status: 'pending' },
+          { label: '配置渠道',     status: 'pending' },
+          { label: '启动服务',     status: 'pending' },
+          { label: '验证连接',     status: 'pending' },
+        ],
+
+        requestTimeout: {
+          status: 10000,
+          install: 120000,
+        },
+
+        async fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), timeoutMs);
+          try {
+            return await fetch(url, { ...options, signal: controller.signal });
+          } finally {
+            clearTimeout(timer);
+          }
+        },
+
+        async init() {
+          try {
+            const forceSetup = new URLSearchParams(window.location.search).has('force') ||
+                               window.location.pathname === '/setup';
+            const res = await this.fetchWithTimeout('/api/status', {}, this.requestTimeout.status);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.installed === true && data.daemon === 'running' && !forceSetup) {
+                window.location.href = '/dashboard';
+              }
+            }
+          } catch (_) {
+            // API not available yet — stay on wizard
+          }
+        },
+
+        toggleChannel(key) {
+          const idx = this.selectedChannels.indexOf(key);
+          if (idx === -1) {
+            this.selectedChannels.push(key);
+          } else {
+            this.selectedChannels.splice(idx, 1);
+          }
+        },
+
+        nextStep() {
+          if (this.currentStep < 4) this.currentStep++;
+          this.$nextTick(() => {
+            if (this.currentStep === 4 && this.installStarted) {
+              this._animateTasks();
+            }
+          });
+        },
+
+        prevStep() {
+          if (this.currentStep > 1) this.currentStep--;
+        },
+
+        _animateTasks() {
+          if (typeof anime !== 'undefined') {
+            anime({
+              targets: '.install-tasks-list .flex',
+              opacity: [0, 1],
+              translateX: [-20, 0],
+              delay: anime.stagger(80),
+              duration: 400,
+              easing: 'easeOutQuart'
+            });
+          }
+        },
+
+        buildInstallErrorText(payload, statusCode) {
+          const parts = [];
+          if (Array.isArray(payload?.errors)) parts.push(...payload.errors);
+          if (typeof payload?.error === 'string' && payload.error.trim()) parts.push(payload.error.trim());
+          if (typeof payload?.message === 'string' && payload.message.trim()) parts.push(payload.message.trim());
+          if (parts.length === 0) parts.push(`服务器返回错误 ${statusCode}`);
+          return parts.join('\n');
+        },
+
+        isInstallTimeoutLike(errorText) {
+          const text = String(errorText || '');
+          const timeoutLike = /(timed out|timeout|health\s*check)/i.test(text);
+          const hardFail = /(config set|models set|plugin install|writing auth-profiles|spawn .*enoent|unknown channel type|不能为空|invalid)/i.test(text);
+          return timeoutLike && !hardFail;
+        },
+
+        async waitUntilInstalled() {
+          const startedAt = Date.now();
+          while (true) {
+            try {
+              const res = await this.fetchWithTimeout('/api/status', {}, this.requestTimeout.status);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.installed === true && data.daemon === 'running') return true;
+              }
+            } catch (_) {
+              // Keep polling until backend reports installed=true
+            }
+
+            const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+            this.installLoadingMessage = elapsedSec < 120
+              ? '正在部署中，通常需要 1-2 分钟，请勿关闭页面。'
+              : `仍在部署中（已等待 ${elapsedSec} 秒），正在自动检测服务状态…`;
+
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        },
+
+        async startInstall() {
+          this.installStarted = true;
+          this.installError = false;
+          this.installErrorMsg = '';
+          this.installDone = false;
+          this.installWarnings = [];
+          this.installLoadingMessage = '正在部署中，通常需要 1-2 分钟，请勿关闭页面。';
+
+          // Reset task statuses
+          this.installTasks.forEach(t => t.status = 'pending');
+
+          this.$nextTick(() => this._animateTasks());
+
+          const body = {
+            channels: this.selectedChannels.map(key => ({
+              type: key,
+              ...this.credentials[key],
+            })),
+            api: this.apiConfig,
+          };
+
+          let progressInterval = null;
+          try {
+            // Simulate progressive task updates while awaiting response
+            let taskIndex = 0;
+            progressInterval = setInterval(() => {
+              if (taskIndex < this.installTasks.length) {
+                if (taskIndex > 0) {
+                  this.installTasks[taskIndex - 1].status = 'done';
+                }
+                this.installTasks[taskIndex].status = 'running';
+                taskIndex++;
+              }
+            }, 600);
+
+            const res = await this.fetchWithTimeout('/api/install', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            }, this.requestTimeout.install);
+            const payload = await res.json().catch(() => ({}));
+
+            if (res.ok) {
+              this.installWarnings = Array.isArray(payload.warnings) ? payload.warnings : [];
+              // Mark all done
+              this.installTasks.forEach(t => t.status = 'done');
+              await new Promise(r => setTimeout(r, 400));
+              this.installDone = true;
+            } else {
+              const errorText = this.buildInstallErrorText(payload, res.status);
+              if (this.isInstallTimeoutLike(errorText)) {
+                const last = this.installTasks.length - 1;
+                this.installTasks.forEach((task, idx) => {
+                  task.status = idx < last ? 'done' : 'running';
+                });
+                this.installLoadingMessage = '服务正在后台完成启动，正在自动检测状态，请稍候…';
+                await this.waitUntilInstalled();
+                this.installTasks.forEach(t => t.status = 'done');
+                this.installDone = true;
+                setTimeout(() => {
+                  window.location.href = '/dashboard';
+                }, 600);
+                return;
+              }
+
+              // Mark running task as error
+              this.installTasks.forEach(t => {
+                if (t.status === 'running') t.status = 'error';
+              });
+              this.installError = true;
+              this.installErrorMsg = errorText;
+            }
+          } catch (e) {
+            if (e?.name === 'AbortError') {
+              const last = this.installTasks.length - 1;
+              this.installTasks.forEach((task, idx) => {
+                task.status = idx < last ? 'done' : 'running';
+              });
+              this.installLoadingMessage = '部署请求超时，但服务可能仍在后台启动，正在自动检测状态…';
+              await this.waitUntilInstalled();
+              this.installTasks.forEach(t => t.status = 'done');
+              this.installDone = true;
+              setTimeout(() => {
+                window.location.href = '/dashboard';
+              }, 600);
+              return;
+            }
+
+            this.installTasks.forEach(t => {
+              if (t.status === 'running') t.status = 'error';
+            });
+            this.installError = true;
+            this.installErrorMsg = '无法连接到安装服务：' + e.message;
+          } finally {
+            if (progressInterval) clearInterval(progressInterval);
+          }
+        },
+
+        retryInstall() {
+          this.installStarted = false;
+          this.installError = false;
+          this.installErrorMsg = '';
+          this.installWarnings = [];
+          this.installTasks.forEach(t => t.status = 'pending');
+        },
+      };
+    }
+  </script>
+</body>
+</html>

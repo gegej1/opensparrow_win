@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Open Sparrow 管理面板</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background:
+        radial-gradient(ellipse at 20% 10%, rgba(22,119,255,0.10) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 90%, rgba(22,119,255,0.07) 0%, transparent 55%),
+        #F0F6FF;
+      color: #1D2B4E;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ===== Navigation ===== */
+    .glass-nav {
+      background: #FFFFFF;
+      border-bottom: 1px solid #E0EEFF;
+      box-shadow: 0 1px 8px rgba(22, 119, 255, 0.08);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      min-width: 0;
+    }
+
+    /* ===== Cards ===== */
+    .glass-card {
+      background: #FFFFFF;
+      border: 1px solid #E0EEFF;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(22, 119, 255, 0.07);
+      padding: 24px;
+      margin-bottom: 16px;
+      transition: box-shadow 0.2s;
+    }
+    .glass-card:hover {
+      box-shadow: 0 8px 32px rgba(22, 119, 255, 0.10);
+    }
+
+    /* ===== Brand text ===== */
+    .brand-text {
+      background: linear-gradient(135deg, #1677FF, #0958D9);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 700;
+    }
+
+    /* ===== Primary button ===== */
+    .blue-btn {
+      background: linear-gradient(135deg, #60A5FA, #1677FF);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(22, 119, 255, 0.3);
+    }
+    .blue-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #1677FF, #0958D9);
+      box-shadow: 0 4px 16px rgba(22, 119, 255, 0.4);
+      transform: translateY(-1px);
+    }
+    .blue-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ===== Outline button ===== */
+    .outline-btn {
+      background: white;
+      color: #1677FF;
+      border: 1.5px solid #E0EEFF;
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .outline-btn:hover:not(:disabled) {
+      background: #EBF3FF;
+      border-color: #1677FF;
+      color: #0958D9;
+    }
+    .outline-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ===== Cancel button ===== */
+    .cancel-btn {
+      background: white;
+      color: #6B7A99;
+      border: 1.5px solid #E0EEFF;
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .cancel-btn:hover {
+      background: #FAFAF9;
+      border-color: #D6D3D1;
+    }
+
+    /* ===== Tabs ===== */
+    .tab-active {
+      background: linear-gradient(135deg, #60A5FA, #1677FF);
+      color: white !important;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-weight: 600;
+      font-size: 13px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(22, 119, 255, 0.25);
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .tab-inactive {
+      color: #0958D9;
+      background: transparent;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 13px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .tab-inactive:hover { background: #E0EEFF; }
+
+    /* ===== Input ===== */
+    .light-input {
+      background: white;
+      border: 1.5px solid #E0EEFF;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #1D2B4E;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+    .light-input:focus {
+      border-color: #1677FF;
+      box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.15);
+    }
+    .light-input::placeholder { color: #6B7A99; }
+
+    /* ===== Info cell ===== */
+    .info-cell {
+      background: #EBF3FF;
+      border: 1px solid #E0EEFF;
+      border-radius: 12px;
+      padding: 1rem;
+    }
+
+    /* ===== Channel enabled border ===== */
+    .channel-enabled { border-left: 4px solid #1677FF; }
+
+    /* ===== Toggle ===== */
+    .toggle-on  { background: linear-gradient(135deg, #60A5FA, #1677FF); }
+    .toggle-off { background: #D1D5DB; }
+
+    /* ===== Pulse animations ===== */
+    @keyframes pulse-gold {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.2); opacity: 0.15; }
+    }
+    .pulse-gold-ring { animation: pulse-gold 1.8s ease-in-out infinite; }
+
+    @keyframes pulse-dot-std {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.6; transform: scale(1.15); }
+    }
+    .pulse-dot { animation: pulse-dot-std 1.8s ease-in-out infinite; }
+
+    /* ===== Toast ===== */
+    @keyframes slideInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .toast-enter { animation: slideInUp 0.25s ease-out; }
+
+    /* ===== Tab content fade ===== */
+    .tab-content { animation: fadeIn 0.22s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* ===== Edit button ===== */
+    .edit-btn {
+      color: #1677FF;
+      border: 1px solid #E0EEFF;
+      background: #EBF3FF;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-weight: 500;
+    }
+    .edit-btn:hover { background: #E0EEFF; border-color: #1677FF; }
+
+    /* ===== Version badge ===== */
+    .version-badge {
+      background: #E0EEFF;
+      color: #0958D9;
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid #E0EEFF;
+      font-family: monospace;
+    }
+
+    /* ===== Note box ===== */
+    .note-box {
+      background: #EBF3FF;
+      border: 1px solid #E0EEFF;
+      color: #0958D9;
+    }
+
+    /* ===== Modal note ===== */
+    .modal-note {
+      background: #EBF3FF;
+      border: 1px solid #E0EEFF;
+      color: #0958D9;
+    }
+
+    /* ===== Action buttons ===== */
+    .btn-start  { background: linear-gradient(135deg, #22c55e, #16a34a); }
+    .btn-start:hover:not(:disabled) { background: linear-gradient(135deg, #4ade80, #15803d); box-shadow: 0 6px 20px rgba(34,197,94,0.3); transform: translateY(-1px); }
+    .btn-stop   { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .btn-stop:hover:not(:disabled)  { background: linear-gradient(135deg, #f87171, #b91c1c); box-shadow: 0 6px 20px rgba(239,68,68,0.3);  transform: translateY(-1px); }
+    .btn-start, .btn-stop { transition: all 0.2s ease; }
+    .btn-start:disabled, .btn-stop:disabled { opacity: 0.35; transform: none; }
+
+    /* ===== Card animate ===== */
+    .card-animate { opacity: 0; }
+
+    /* ===== Section title ===== */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0958D9;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #E0EEFF;
+    }
+
+    /* ===== Blue divider ===== */
+    .gold-divider {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #1677FF, transparent);
+      border: none;
+      margin: 16px 0;
+    }
+  </style>
+</head>
+<body class="min-h-screen" x-data="dashboard()" x-init="init()">
+
+  <!-- Toast Notifications -->
+  <div class="fixed bottom-6 right-6 z-50 space-y-2">
+    <template x-for="toast in toasts" :key="toast.id">
+      <div
+        class="toast-enter animate__animated animate__slideInUp flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl text-sm font-medium max-w-xs"
+        :class="{
+          'bg-green-500/90 text-white': toast.type === 'success',
+          'bg-red-500/90 text-white':   toast.type === 'error',
+          'bg-white text-blue-800':    toast.type === 'info'
+        }"
+        :style="toast.type === 'info' ? 'border:1px solid #E0EEFF;box-shadow:0 4px 16px rgba(22,119,255,0.10)' : ''"
+      >
+        <span x-text="toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'"></span>
+        <span x-text="toast.msg"></span>
+      </div>
+    </template>
+  </div>
+
+  <!-- Modal Backdrop -->
+  <div
+    x-show="modal.open"
+    x-cloak
+    class="fixed inset-0 z-40 flex items-center justify-center p-4"
+    style="background:rgba(29,43,78,0.45);backdrop-filter:blur(4px)"
+    @click.self="closeModal()"
+  >
+    <div
+      class="animate__animated animate__fadeInUp w-full max-w-md"
+      style="animation-duration:0.22s;background:white;border:1px solid #E0EEFF;border-radius:20px;box-shadow:0 8px 48px rgba(22,119,255,0.14)"
+      @click.stop
+    >
+      <div class="flex items-center justify-between px-6 pt-6 pb-4"
+           style="border-bottom:1px solid #E0EEFF">
+        <h3 class="text-lg font-bold" style="color:#1D2B4E" x-text="modal.title"></h3>
+        <button @click="closeModal()"
+                style="color:#6B7A99;font-size:1.5rem;line-height:1;background:none;border:none;cursor:pointer;"
+                onmouseover="this.style.color='#6B7A99'"
+                onmouseout="this.style.color='#6B7A99'">&times;</button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <!-- Feishu modal fields -->
+        <template x-if="modal.channel === 'feishu'">
+          <div class="space-y-4">
+            <div class="modal-note rounded-lg p-3 text-xs">
+              在飞书开放平台创建企业自建应用，开通机器人能力，启用长连接接收事件
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">App ID</label>
+              <input type="text" x-model="modal.fields.appId" placeholder="cli_xxxxxxxxxxxxxxxx"
+                     class="light-input" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">App Secret</label>
+              <input type="password" x-model="modal.fields.appSecret" placeholder="••••••••••••••••"
+                     class="light-input" />
+            </div>
+          </div>
+        </template>
+
+        <!-- Dingtalk modal fields -->
+        <template x-if="modal.channel === 'dingtalk'">
+          <div class="space-y-4">
+            <div class="modal-note rounded-lg p-3 text-xs">
+              在钉钉开放平台创建企业内部应用，添加机器人能力，消息接收模式选 Stream 模式
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppKey（clientId）</label>
+              <input type="text" x-model="modal.fields.clientId" placeholder="dingxxxxxxxxxxxxxxxx"
+                     class="light-input" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppSecret（clientSecret）</label>
+              <input type="password" x-model="modal.fields.clientSecret" placeholder="••••••••••••••••"
+                     class="light-input" />
+            </div>
+          </div>
+        </template>
+
+        <!-- Wecom modal fields -->
+        <template x-if="modal.channel === 'wecom'">
+          <div class="space-y-4">
+            <div class="modal-note rounded-lg p-3 text-xs">
+              在企微管理后台 → 应用管理 → 智能机器人，创建应用选 API 模式 + 长连接
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">Bot ID</label>
+              <input type="text" x-model="modal.fields.botId" placeholder="ww_xxxxxxxxxxxxxxxx"
+                     class="light-input" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">Bot Secret</label>
+              <input type="password" x-model="modal.fields.secret" placeholder="••••••••••••••••"
+                     class="light-input" />
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div class="px-6 pb-6 flex gap-3">
+        <button @click="closeModal()" class="cancel-btn flex-1 py-2.5 rounded-xl text-sm font-medium">
+          取消
+        </button>
+        <button @click="saveChannelConfig()"
+                :disabled="modal.saving"
+                class="blue-btn flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2">
+          <span x-show="modal.saving" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+          <span x-text="modal.saving ? '保存中…' : '保存'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Navigation -->
+  <nav class="glass-nav sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6">
+      <div class="flex items-center justify-between py-3 gap-4 flex-wrap">
+        <!-- Logo -->
+        <div class="flex items-center gap-2 select-none flex-shrink-0 min-w-0">
+          <img src="data:image/png;base64,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" width="36" height="36" style="border-radius:50%;object-fit:cover;flex-shrink:0;min-width:36px;min-height:36px;" alt="Open Sparrow">
+          <span class="font-bold text-lg brand-text whitespace-nowrap">Open Sparrow</span>
+        </div>
+
+        <!-- Tabs -->
+        <div style="display:flex;align-items:center;gap:4px;background:#E0EEFF;border-radius:10px;padding:4px;">
+          <template x-for="(tab, i) in tabs" :key="i">
+            <button
+              @click="switchTab(tab.key)"
+              :class="activeTab === tab.key ? 'tab-active' : 'tab-inactive'"
+              x-text="tab.label"
+            ></button>
+          </template>
+        </div>
+
+        <!-- Version badge -->
+        <div class="version-badge">
+          v<span x-text="version"></span>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+
+    <!-- Tab 1: Service Status -->
+    <div x-show="activeTab === 'status'" x-cloak class="tab-content space-y-6">
+
+      <!-- Big Status Card -->
+      <div class="glass-card rounded-2xl p-8 card-animate">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-6">
+          <!-- Status Indicator -->
+          <div class="flex items-center gap-4">
+            <div class="relative w-16 h-16 flex items-center justify-center">
+              <!-- Pulse ring -->
+              <div
+                class="absolute w-full h-full rounded-full"
+                :class="serviceStatus === 'running' ? 'pulse-gold-ring' : ''"
+                :style="serviceStatus === 'running'
+                  ? 'background:rgba(22,119,255,0.18)'
+                  : 'background:#E0EEFF'"
+              ></div>
+              <!-- Core dot -->
+              <div
+                class="relative w-8 h-8 rounded-full"
+                :class="serviceStatus === 'running' ? 'pulse-dot' : ''"
+                :style="serviceStatus === 'running'
+                  ? 'background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 0 16px rgba(34,197,94,0.4)'
+                  : 'background:#E0EEFF'"
+              ></div>
+            </div>
+            <div>
+              <p class="text-sm mb-0.5" style="color:#0958D9;font-weight:500">服务状态</p>
+              <p
+                class="text-2xl font-bold"
+                :class="serviceStatus === 'running' ? 'text-green-600' : 'text-blue-300'"
+                x-text="serviceStatus === 'running' ? '运行中' : '已停止'"
+              ></p>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex gap-3 sm:ml-auto flex-wrap">
+            <button
+              @click="daemonAction('start')"
+              :disabled="daemonLoading || serviceStatus === 'running'"
+              class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-35"
+              :class="serviceStatus === 'running' ? '' : 'btn-start'"
+              :style="serviceStatus === 'running' ? 'background:#E0EEFF;color:#6B7A99;cursor:not-allowed' : ''"
+            >
+              <span x-show="daemonLoading && daemonAction_ === 'start'" class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+              ▶ 启动
+            </button>
+            <button
+              @click="daemonAction('stop')"
+              :disabled="daemonLoading || serviceStatus !== 'running'"
+              class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition disabled:opacity-35"
+              :class="serviceStatus !== 'running' ? '' : 'btn-stop'"
+              :style="serviceStatus !== 'running' ? 'background:#E0EEFF;color:#6B7A99;cursor:not-allowed' : ''"
+            >
+              <span x-show="daemonLoading && daemonAction_ === 'stop'" class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+              ⏹ 停止
+            </button>
+            <button
+              @click="daemonAction('restart')"
+              :disabled="daemonLoading"
+              class="blue-btn flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-sm font-semibold"
+            >
+              <span x-show="daemonLoading && daemonAction_ === 'restart'" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+              🔄 重启
+            </button>
+            <button
+              @click="cleanupEnvironment()"
+              :disabled="daemonLoading || cleanupLoading || resetLoading"
+              class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition"
+              :style="cleanupLoading
+                ? 'background:#FEE2E2;color:#B91C1C;opacity:0.65;cursor:not-allowed'
+                : 'background:#FEE2E2;color:#B91C1C;border:1px solid #FCA5A5'"
+            >
+              <span x-show="cleanupLoading" class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+              🧹 快速清理
+            </button>
+            <button
+              @click="factoryReset()"
+              :disabled="daemonLoading || cleanupLoading || resetLoading"
+              class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition"
+              :style="resetLoading
+                ? 'background:#7F1D1D;color:#FCA5A5;opacity:0.65;cursor:not-allowed'
+                : 'background:#991B1B;color:#FEE2E2;border:1px solid #EF4444'"
+            >
+              <span x-show="resetLoading" class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+              🧨 全量重置（删配置）
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Service Info -->
+      <div class="glass-card rounded-2xl p-6 card-animate">
+        <h3 class="text-base font-bold mb-4" style="color:#1D2B4E">基本信息</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="info-cell">
+            <p class="text-xs mb-1 uppercase tracking-wide" style="color:#0958D9;font-weight:600">Profile</p>
+            <p class="font-semibold text-sm" style="color:#1D2B4E" x-text="serviceInfo.profile || '—'"></p>
+          </div>
+          <div class="info-cell">
+            <p class="text-xs mb-1 uppercase tracking-wide" style="color:#0958D9;font-weight:600">配置路径</p>
+            <p class="font-mono text-xs truncate" style="color:#6B7A99" x-text="serviceInfo.configPath || '—'"></p>
+          </div>
+          <div class="info-cell">
+            <p class="text-xs mb-1 uppercase tracking-wide" style="color:#0958D9;font-weight:600">端口</p>
+            <p class="font-semibold text-sm" style="color:#1D2B4E" x-text="serviceInfo.port || '—'"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Channel Config -->
+    <div x-show="activeTab === 'channels'" x-cloak class="tab-content space-y-4">
+      <template x-for="ch in channelCards" :key="ch.key">
+        <div class="glass-card rounded-2xl p-6 card-animate"
+             :class="ch.enabled ? 'channel-enabled' : ''">
+          <div class="flex items-start gap-4">
+            <!-- Icon -->
+            <span class="text-3xl mt-0.5" x-text="ch.icon"></span>
+
+            <!-- Info -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-3 flex-wrap">
+                <h3 class="font-bold text-base" style="color:#1D2B4E" x-text="ch.name"></h3>
+                <!-- Toggle -->
+                <button
+                  @click="toggleChannel(ch)"
+                  class="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 focus:outline-none"
+                  :class="ch.enabled ? 'toggle-on shadow-md' : 'toggle-off'"
+                  :style="ch.enabled ? 'box-shadow:0 2px 8px rgba(22,119,255,0.35)' : ''"
+                  :aria-label="ch.enabled ? '禁用' : '启用'"
+                >
+                  <span
+                    class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200"
+                    :class="ch.enabled ? 'translate-x-6' : 'translate-x-1'"
+                  ></span>
+                </button>
+                <span class="text-xs font-medium"
+                      :style="ch.enabled ? 'color:#1677FF' : 'color:#6B7A99'"
+                      x-text="ch.enabled ? '已启用' : '已禁用'"></span>
+              </div>
+
+              <!-- Field summary -->
+              <div class="mt-2 space-y-1">
+                <template x-for="field in ch.summaryFields" :key="field.label">
+                  <div class="flex items-center gap-2 text-xs" style="color:#0958D9">
+                    <span class="w-20 flex-shrink-0" x-text="field.label + '：'"></span>
+                    <span class="font-mono" style="color:#6B7A99" x-text="field.value"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Edit Button -->
+            <button
+              @click="openModal(ch)"
+              class="edit-btn flex-shrink-0 px-4 py-2 text-sm font-medium rounded-xl"
+            >
+              编辑
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Tab 3: API Config -->
+    <div x-show="activeTab === 'api'" x-cloak class="tab-content">
+      <div class="glass-card rounded-2xl p-8 max-w-xl card-animate">
+        <h2 class="text-lg font-bold mb-1" style="color:#1D2B4E">API 配置</h2>
+        <p class="text-sm mb-6" style="color:#6B7A99">支持任意 OpenAI 兼容接口，包括 Azure、国内中转等</p>
+
+        <div class="space-y-5">
+          <div>
+            <label class="block text-sm font-medium mb-1" style="color:#6B7A99">Base URL</label>
+            <input type="text" x-model="apiForm.baseUrl"
+                   placeholder="https://api.openai.com/v1 或你的中转地址"
+                   class="light-input" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" style="color:#6B7A99">API Key</label>
+            <div class="relative">
+              <input
+                :type="showApiKey ? 'text' : 'password'"
+                x-model="apiForm.apiKey"
+                :placeholder="showApiKey ? '请输入 API Key' : 'sk-xxxxxxxxxxxxxxxxxxxxxxxx'"
+                class="light-input"
+                style="padding-right:60px"
+              />
+              <button
+                @click="showApiKey = !showApiKey"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium transition-colors"
+                style="color:#1677FF;background:none;border:none;cursor:pointer"
+                onmouseover="this.style.color='#0958D9'"
+                onmouseout="this.style.color='#1677FF'"
+                x-text="showApiKey ? '隐藏' : '显示'"
+              ></button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" style="color:#6B7A99">模型名称</label>
+            <input type="text" x-model="apiForm.model"
+                   placeholder="请输入模型名称，如 gpt-4o-mini"
+                   class="light-input" />
+          </div>
+
+          <button
+            @click="saveApiConfig()"
+            :disabled="apiSaving"
+            class="blue-btn w-full font-semibold py-3 rounded-xl flex items-center justify-center gap-2"
+            style="box-shadow:0 4px 16px rgba(22,119,255,0.25)"
+          >
+            <span x-show="apiSaving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
+            <span x-text="apiSaving ? '保存中…' : '保存配置'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    function dashboard() {
+      return {
+        // Navigation
+        activeTab: 'status',
+        tabs: [
+          { key: 'status',   label: '服务状态' },
+          { key: 'channels', label: '渠道配置' },
+          { key: 'api',      label: 'API 配置' },
+        ],
+        version: '—',
+
+        // Status Tab
+        serviceStatus: 'stopped',
+        daemonLoading: false,
+        daemonAction_: '',
+        cleanupLoading: false,
+        resetLoading: false,
+        serviceInfo: {
+          profile: '',
+          configPath: '',
+          port: '',
+        },
+
+        // Channels Tab
+        channelCards: [
+          {
+            key: 'feishu',
+            icon: '🐦',
+            name: '飞书 / Lark',
+            enabled: false,
+            fields: { appId: '', appSecret: '' },
+            summaryFields: [],
+          },
+          {
+            key: 'dingtalk',
+            icon: '📎',
+            name: '钉钉',
+            enabled: false,
+            fields: { clientId: '', clientSecret: '' },
+            summaryFields: [],
+          },
+          {
+            key: 'wecom',
+            icon: '💼',
+            name: '企业微信',
+            enabled: false,
+            fields: { botId: '', secret: '' },
+            summaryFields: [],
+          },
+        ],
+
+        // API Tab
+        apiForm: { baseUrl: '', apiKey: '', model: '' },
+        apiSaving: false,
+        showApiKey: false,
+
+        // Modal
+        modal: {
+          open: false,
+          channel: '',
+          title: '',
+          fields: {},
+          saving: false,
+        },
+
+        // Toast
+        toasts: [],
+        toastCounter: 0,
+        requestTimeout: {
+          status: 10000,
+          daemon: 90000,
+          cleanup: 90000,
+          reset: 120000,
+          save: 90000,
+        },
+
+        // ─── Lifecycle ───────────────────────────────────────────────
+
+        async init() {
+          await Promise.all([this.loadStatus(), this.loadConfig()]);
+          this.$nextTick(() => this._animateCards());
+        },
+
+        switchTab(key) {
+          this.activeTab = key;
+          this.$nextTick(() => this._animateCards());
+        },
+
+        _animateCards() {
+          if (typeof anime !== 'undefined') {
+            anime({
+              targets: '.card-animate',
+              opacity: [0, 1],
+              translateY: [20, 0],
+              delay: anime.stagger(80),
+              duration: 500,
+              easing: 'easeOutQuart'
+            });
+          }
+        },
+
+        async loadStatus() {
+          try {
+            const res = await this.fetchWithTimeout('/api/status', {}, this.requestTimeout.status);
+            if (!res.ok) return;
+            const data = await res.json();
+            this.serviceStatus = data.daemon === 'running' ? 'running' : 'stopped';
+            this.version = data.version || '1.0.0';
+            this.serviceInfo.profile    = data.profile    || 'usb-portable';
+            this.serviceInfo.configPath = data.configPath || '';
+            this.serviceInfo.port       = '18889';
+          } catch (_) {
+            // Gracefully degrade when backend unavailable
+            this.version = '1.0.0';
+          }
+        },
+
+        async loadConfig() {
+          try {
+            const res = await this.fetchWithTimeout('/api/config', {}, this.requestTimeout.status);
+            if (!res.ok) {
+              // Config not yet created — build empty summaries and return
+              this.channelCards.forEach(card => {
+                card.summaryFields = this.buildSummaryFields(card.key, card.fields);
+              });
+              return;
+            }
+            const data = await res.json();
+
+            // Populate API form from models.providers.openai
+            const openai = data?.models?.providers?.openai;
+            if (openai) {
+              this.apiForm.baseUrl = openai.baseUrl || '';
+              // model name comes from the models array
+              const firstModel = Array.isArray(openai.models) ? openai.models[0] : null;
+              this.apiForm.model = firstModel?.id || '';
+            }
+            // apiKey is in auth-profiles.json (not in main config) — leave blank
+
+            // Populate channel cards from channels object
+            const channels = data?.channels || {};
+            this.channelCards.forEach(card => {
+              const ch = channels[card.key];
+              if (ch) {
+                card.enabled = ch.enabled !== false;
+                // map channel fields to card.fields
+                if (card.key === 'feishu') {
+                  card.fields.appId     = ch.appId     || '';
+                  card.fields.appSecret = ch.appSecret || '';
+                } else if (card.key === 'dingtalk') {
+                  card.fields.clientId     = ch.clientId     || '';
+                  card.fields.clientSecret = ch.clientSecret || '';
+                } else if (card.key === 'wecom') {
+                  card.fields.botId  = ch.botId  || '';
+                  card.fields.secret = ch.secret || '';
+                }
+              }
+              card.summaryFields = this.buildSummaryFields(card.key, card.fields);
+            });
+          } catch (_) {
+            // Use defaults
+            this.channelCards.forEach(card => {
+              card.summaryFields = this.buildSummaryFields(card.key, card.fields);
+            });
+          }
+        },
+
+        // ─── Helpers ─────────────────────────────────────────────────
+
+        buildSummaryFields(channelKey, fields) {
+          const mask = (v) => {
+            if (!v) return '未配置';
+            if (v.length <= 6) return v.slice(0, 2) + '***';
+            return v.slice(0, 6) + '***';
+          };
+
+          if (channelKey === 'feishu') {
+            return [
+              { label: 'App ID',     value: mask(fields.appId) },
+              { label: 'App Secret', value: mask(fields.appSecret) },
+            ];
+          }
+          if (channelKey === 'dingtalk') {
+            return [
+              { label: 'AppKey',    value: mask(fields.clientId) },
+              { label: 'AppSecret', value: mask(fields.clientSecret) },
+            ];
+          }
+          if (channelKey === 'wecom') {
+            return [
+              { label: 'Bot ID',     value: mask(fields.botId) },
+              { label: 'Bot Secret', value: mask(fields.secret) },
+            ];
+          }
+          return [];
+        },
+
+        showToast(msg, type = 'success') {
+          const id = ++this.toastCounter;
+          this.toasts.push({ id, msg, type });
+          setTimeout(() => {
+            this.toasts = this.toasts.filter(t => t.id !== id);
+          }, 3000);
+        },
+
+        async fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), timeoutMs);
+          try {
+            return await fetch(url, { ...options, signal: controller.signal });
+          } finally {
+            clearTimeout(timer);
+          }
+        },
+
+        // ─── Daemon Actions ───────────────────────────────────────────
+
+        async daemonAction(action) {
+          this.daemonLoading = true;
+          this.daemonAction_ = action;
+          try {
+            const res = await this.fetchWithTimeout('/api/daemon', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action }),
+            }, this.requestTimeout.daemon);
+            if (res.ok) {
+              this.showToast(
+                action === 'start' ? '服务已启动' :
+                action === 'stop'  ? '服务已停止' : '服务已重启'
+              );
+              // Refresh status after a short delay
+              await new Promise(r => setTimeout(r, 800));
+              await this.loadStatus();
+            } else {
+              const err = await res.json().catch(() => ({}));
+              this.showToast(err.message || '操作失败', 'error');
+            }
+          } catch (e) {
+            if (e?.name === 'AbortError') {
+              this.showToast(`服务操作超时（>${Math.round(this.requestTimeout.daemon / 1000)}秒）`, 'error');
+            } else {
+              this.showToast('无法连接到服务：' + e.message, 'error');
+            }
+          } finally {
+            this.daemonLoading = false;
+            this.daemonAction_ = '';
+          }
+        },
+
+        async cleanupEnvironment() {
+          const confirmed = window.confirm(
+            '将执行“快速清理”：停止/卸载 daemon，并尝试释放 18889 端口（不会删除配置文件与凭证）。确定继续吗？'
+          );
+          if (!confirmed) return;
+
+          this.cleanupLoading = true;
+          try {
+            const res = await this.fetchWithTimeout('/api/cleanup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({}),
+            }, this.requestTimeout.cleanup);
+            const data = await res.json().catch(() => ({}));
+
+            if (res.ok && data.ok !== false) {
+              const warning = Array.isArray(data.warnings) && data.warnings.length > 0
+                ? `；告警：${data.warnings.join('；')}`
+                : '';
+              this.showToast(`快速清理完成（未删配置）${warning}`);
+            } else {
+              const msg = Array.isArray(data.errors) && data.errors.length > 0
+                ? data.errors.join('; ')
+                : (data.error || '清理失败');
+              this.showToast(msg, 'error');
+            }
+
+            await new Promise(r => setTimeout(r, 500));
+            await this.loadStatus();
+          } catch (e) {
+            if (e?.name === 'AbortError') {
+              this.showToast(`快速清理超时（>${Math.round(this.requestTimeout.cleanup / 1000)}秒）`, 'error');
+            } else {
+              this.showToast('无法连接到服务：' + e.message, 'error');
+            }
+          } finally {
+            this.cleanupLoading = false;
+          }
+        },
+
+        async factoryReset() {
+          const confirmed = window.confirm(
+            '将执行全量重置：停止服务、卸载 daemon、删除当前 profile 状态与 workspace，并删除 superpowers skills。该操作不可撤销。确定继续吗？'
+          );
+          if (!confirmed) return;
+
+          this.resetLoading = true;
+          try {
+            const res = await this.fetchWithTimeout('/api/reset', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ cleanupSkills: true }),
+            }, this.requestTimeout.reset);
+            const data = await res.json().catch(() => ({}));
+
+            if (res.ok && data.ok !== false) {
+              const warning = Array.isArray(data.warnings) && data.warnings.length > 0
+                ? `，但有告警：${data.warnings.join('；')}`
+                : '';
+              this.showToast(`全量重置完成${warning}`);
+              setTimeout(() => {
+                window.location.href = '/?force=1';
+              }, 700);
+              return;
+            }
+
+            const msg = Array.isArray(data.errors) && data.errors.length > 0
+              ? data.errors.join('; ')
+              : (data.error || '全量重置失败');
+            this.showToast(msg, 'error');
+
+            if (data.resetComplete === true) {
+              this.showToast('核心重置已完成，正在返回安装向导');
+              setTimeout(() => {
+                window.location.href = '/?force=1';
+              }, 900);
+            }
+          } catch (e) {
+            if (e?.name === 'AbortError') {
+              this.showToast(`全量重置超时（>${Math.round(this.requestTimeout.reset / 1000)}秒）`, 'error');
+            } else {
+              this.showToast('无法连接到服务：' + e.message, 'error');
+            }
+          } finally {
+            this.resetLoading = false;
+          }
+        },
+
+        // ─── Channel Toggle ───────────────────────────────────────────
+
+        async toggleChannel(ch) {
+          const newEnabled = !ch.enabled;
+          ch.enabled = newEnabled;
+          try {
+            const res = await this.fetchWithTimeout('/api/config/channels', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: ch.key, enabled: newEnabled, ...ch.fields }),
+            }, this.requestTimeout.save);
+            if (res.ok) {
+              this.showToast(`${ch.name} 已${newEnabled ? '启用' : '禁用'}，服务将自动重启`);
+            } else {
+              ch.enabled = !newEnabled; // revert
+              this.showToast('更新失败', 'error');
+            }
+          } catch (e) {
+            ch.enabled = !newEnabled; // revert
+            this.showToast('无法连接到服务', 'error');
+          }
+        },
+
+        // ─── Modal ────────────────────────────────────────────────────
+
+        openModal(ch) {
+          this.modal.channel = ch.key;
+          this.modal.title   = `编辑 ${ch.name} 凭证`;
+          this.modal.fields  = { ...ch.fields };
+          this.modal.saving  = false;
+          this.modal.open    = true;
+        },
+
+        closeModal() {
+          this.modal.open = false;
+        },
+
+        async saveChannelConfig() {
+          this.modal.saving = true;
+          const ch = this.channelCards.find(c => c.key === this.modal.channel);
+          try {
+            const res = await this.fetchWithTimeout('/api/config/channels', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: this.modal.channel,
+                enabled: ch ? ch.enabled : true,
+                ...this.modal.fields,
+              }),
+            }, this.requestTimeout.save);
+            if (res.ok) {
+              // Update local card fields and summaries
+              if (ch) {
+                Object.assign(ch.fields, this.modal.fields);
+                ch.summaryFields = this.buildSummaryFields(ch.key, ch.fields);
+              }
+              this.closeModal();
+              this.showToast('配置已更新，服务将自动重启');
+            } else {
+              const err = await res.json().catch(() => ({}));
+              this.showToast(err.message || '保存失败', 'error');
+            }
+          } catch (e) {
+            this.showToast('无法连接到服务', 'error');
+          } finally {
+            this.modal.saving = false;
+          }
+        },
+
+        // ─── API Config ───────────────────────────────────────────────
+
+        async saveApiConfig() {
+          this.apiSaving = true;
+          try {
+            const res = await this.fetchWithTimeout('/api/config/api', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.apiForm),
+            }, this.requestTimeout.save);
+            if (res.ok) {
+              this.showToast('API 配置已保存');
+            } else {
+              const err = await res.json().catch(() => ({}));
+              this.showToast(err.message || '保存失败', 'error');
+            }
+          } catch (e) {
+            this.showToast('无法连接到服务', 'error');
+          } finally {
+            this.apiSaving = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

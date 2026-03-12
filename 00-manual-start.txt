@@ -1,0 +1,17 @@
+Manual Recovery (when double-click fails)
+=========================================
+
+1. Open PowerShell in this folder.
+2. Run:
+   .\usb-pack\runtime\node\node.exe .\usb-pack\ui\server.mjs
+3. Wait for:
+   Listening: http://localhost:19000
+   (or another nearby port)
+4. Open that URL in browser.
+5. In browser, complete install and check status.
+
+Common checks
+-------------
+- Ensure .cmd file extension is visible in Explorer.
+- Ensure Windows security software did not block script execution.
+- If port 19000 is occupied, service will auto-switch to next free port.
