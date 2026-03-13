@@ -41,6 +41,7 @@ const OC_TIMEOUT = {
   STATUS: 10000,
   CONFIG_SET: 20000,
   MODEL_SET: 20000,
+  CHANNEL_PROBE: 20000,
   DAEMON_STOP: 20000,
   DAEMON_UNINSTALL: 20000,
   DAEMON_INSTALL: 45000,
@@ -266,6 +267,18 @@ function normalizeOpenAIBaseUrl(rawInput, fallback = 'https://api.openai.com/v1'
 }
 
 /**
+ * Check whether a value looks like WeCom smart-bot Bot ID.
+ * Official examples currently use `aib...` or `aib_...`.
+ * @param {string | null | undefined} raw
+ * @returns {boolean}
+ */
+function isLikelyWecomBotId(raw) {
+  const value = String(raw ?? '').trim()
+  if (!value) return false
+  return /^aib(?:[_-]?[A-Za-z0-9][A-Za-z0-9._-]*)$/i.test(value)
+}
+
+/**
  * Display path with ~ prefix when under user home.
  * @param {string} absolutePath
  * @returns {string}
@@ -352,6 +365,357 @@ function parseDaemonStateFromResult(result) {
   }
 
   return 'unknown'
+}
+
+/**
+ * Read config JSON safely.
+ * @returns {any | null}
+ */
+function readConfigSafe() {
+  try {
+    if (!fs.existsSync(CONFIG_FILE)) return null
+    const raw = fs.readFileSync(CONFIG_FILE, 'utf8')
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Redact sensitive values from text.
+ * @param {string} text
+ * @param {string[]} secrets
+ * @returns {string}
+ */
+function redactSecrets(text, secrets) {
+  let output = String(text ?? '')
+  for (const secret of secrets) {
+    const token = String(secret ?? '').trim()
+    if (!token || token.length < 4) continue
+    output = output.split(token).join('***')
+  }
+  return output
+}
+
+/**
+ * Keep probe output compact and safe for UI display.
+ * @param {string} text
+ * @param {string[]} [secrets]
+ * @param {number} [maxLines]
+ * @returns {string}
+ */
+function compactProbeOutput(text, secrets = [], maxLines = 16) {
+  const clean = stripAnsi(redactSecrets(text, secrets))
+  const lines = clean
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+  if (lines.length <= maxLines) return lines.join('\n')
+  return [...lines.slice(0, maxLines), `...(${lines.length - maxLines} more lines)`].join('\n')
+}
+
+/**
+ * Build DingTalk diagnostics report.
+ * @returns {Promise<{
+ *   status: 'ok'|'warning'|'error',
+ *   ready: boolean,
+ *   daemon: 'running'|'stopped'|'not_installed'|'unknown',
+ *   checks: string[],
+ *   warnings: string[],
+ *   errors: string[],
+ *   probe: {code: number | null, summary: string}
+ * }>}
+ */
+async function buildDingtalkProbeReport() {
+  const checks = []
+  const warnings = []
+  const errors = []
+  const config = readConfigSafe()
+
+  const hasChannelConfig = Boolean(config?.channels?.dingtalk && typeof config.channels.dingtalk === 'object')
+  const dingtalk = hasChannelConfig ? config.channels.dingtalk : {}
+  const enabled = hasChannelConfig && dingtalk?.enabled !== false
+  const clientId = String(dingtalk?.clientId ?? '').trim()
+  const clientSecret = String(dingtalk?.clientSecret ?? '').trim()
+
+  if (!config) {
+    errors.push('配置文件不存在或不可读，请先完成安装')
+  } else {
+    checks.push('配置文件已加载')
+  }
+
+  if (!enabled) {
+    errors.push('channels.dingtalk.enabled=false，请先启用钉钉渠道')
+  } else {
+    checks.push('钉钉渠道已启用')
+  }
+
+  if (!clientId || !clientSecret) {
+    errors.push('钉钉 AppKey/AppSecret 缺失，请先填写并保存')
+  } else {
+    checks.push('钉钉凭证字段已写入')
+  }
+
+  let daemon = 'unknown'
+  let runtimeMode = 'daemon'
+  try {
+    const daemonResult = await runOc(['daemon', 'status', '--json'], {
+      timeoutMs: OC_TIMEOUT.STATUS,
+      opName: 'daemon status',
+    })
+    daemon = parseDaemonStateFromResult(daemonResult)
+  } catch {
+    daemon = 'unknown'
+  }
+
+  if (daemon !== 'running') {
+    try {
+      if (await isPortBusy(GATEWAY_PORT)) {
+        daemon = 'running'
+        runtimeMode = 'gateway-fallback'
+      } else {
+        runtimeMode = 'stopped'
+      }
+    } catch {
+      runtimeMode = 'unknown'
+    }
+  }
+
+  if (daemon === 'running') {
+    checks.push('gateway 运行中')
+    if (runtimeMode === 'gateway-fallback') {
+      warnings.push('当前为 Windows fallback runtime（非 daemon 服务）')
+    }
+  } else {
+    warnings.push(`daemon 当前状态：${daemon}`)
+  }
+
+  let probeCode = null
+  let probeSummary = ''
+  try {
+    const probeResult = await runOc(
+      ['channels', 'status', '--probe', '--timeout', '12000'],
+      {
+        timeoutMs: OC_TIMEOUT.CHANNEL_PROBE,
+        opName: 'channels status --probe',
+      }
+    )
+    probeCode = probeResult.code
+    probeSummary = compactProbeOutput(
+      `${probeResult.stdout}\n${probeResult.stderr}`,
+      [clientId, clientSecret]
+    )
+  } catch (e) {
+    probeSummary = `probe 执行异常: ${e?.message ?? String(e)}`
+  }
+
+  const summaryLower = probeSummary.toLowerCase()
+  if (summaryLower.includes('gateway token mismatch')) {
+    warnings.push('检测到 gateway token mismatch：当前端口可能被旧 daemon 占用，请先执行“快速清理/全量重置”再重试')
+  }
+  if (
+    (summaryLower.includes('gateway not reachable') || summaryLower.includes('connect failed'))
+    && daemon !== 'running'
+  ) {
+    warnings.push('Gateway 不可达，请确认服务已启动且 18889 端口被当前 profile 占用')
+  }
+  if (
+    summaryLower.includes('status code 401')
+    || summaryLower.includes('invalid client')
+    || summaryLower.includes('invalid appkey')
+    || summaryLower.includes('invalid appsecret')
+  ) {
+    warnings.push('钉钉返回 401/凭证错误，请检查 AppKey/AppSecret，并在后台发布最新版本后重试')
+  }
+
+  if (
+    summaryLower.includes('dingtalk')
+    && (summaryLower.includes('enabled, configured') || summaryLower.includes('已配置'))
+  ) {
+    checks.push('channels status 已识别钉钉为 configured')
+  }
+
+  const status = errors.length > 0 ? 'error' : warnings.length > 0 ? 'warning' : 'ok'
+  return {
+    status,
+    ready: status === 'ok',
+    daemon,
+    checks,
+    warnings,
+    errors,
+    probe: {
+      code: probeCode,
+      summary: probeSummary,
+    },
+  }
+}
+
+/**
+ * Build WeCom diagnostics report.
+ * @returns {Promise<{
+ *   status: 'ok'|'warning'|'error',
+ *   ready: boolean,
+ *   daemon: 'running'|'stopped'|'not_installed'|'unknown',
+ *   checks: string[],
+ *   warnings: string[],
+ *   errors: string[],
+ *   probe: {code: number | null, summary: string}
+ * }>}
+ */
+async function buildWecomProbeReport() {
+  const checks = []
+  const warnings = []
+  const errors = []
+  const config = readConfigSafe()
+
+  const hasChannelConfig = Boolean(config?.channels?.wecom && typeof config.channels.wecom === 'object')
+  const wecom = hasChannelConfig ? config.channels.wecom : {}
+  const enabled = hasChannelConfig && wecom?.enabled !== false
+  const botId = String(wecom?.botId ?? '').trim()
+  const secret = String(wecom?.secret ?? '').trim()
+  const mode = String(wecom?.mode ?? '').trim().toLowerCase()
+  const dmPolicy = String(wecom?.dmPolicy ?? '').trim().toLowerCase()
+  const allowFrom = Array.isArray(wecom?.allowFrom) ? wecom.allowFrom.map(v => String(v ?? '').trim()) : []
+
+  if (!config) {
+    errors.push('配置文件不存在或不可读，请先完成安装')
+  } else {
+    checks.push('配置文件已加载')
+  }
+
+  if (!enabled) {
+    errors.push('channels.wecom.enabled=false，请先启用企业微信渠道')
+  } else {
+    checks.push('企业微信渠道已启用')
+  }
+
+  if (!botId || !secret) {
+    errors.push('企业微信 Bot ID / Secret 缺失，请先填写并保存')
+  } else {
+    checks.push('企业微信凭证字段已写入')
+    if (!isLikelyWecomBotId(botId)) {
+      warnings.push('Bot ID 格式疑似错误：请填写“智能机器人（API+长连接）”生成的 Bot ID（通常以 aib 或 aib_ 开头）')
+    }
+  }
+
+  if (mode === 'ws') {
+    checks.push('企业微信连接模式为 ws（长连接）')
+  } else {
+    warnings.push(`channels.wecom.mode 当前为 ${mode || '未设置'}，建议设为 ws`)
+  }
+
+  if (dmPolicy === 'open') {
+    checks.push('企业微信 DM 策略为 open（无需 CLI pairing）')
+    if (allowFrom.includes('*')) {
+      checks.push('企业微信 DM allowFrom 包含 *')
+    } else {
+      warnings.push('channels.wecom.allowFrom 未包含 *，可能导致部分单聊无法触发')
+    }
+  } else {
+    warnings.push(`channels.wecom.dmPolicy 当前为 ${dmPolicy || '未设置'}，网页一键部署建议设为 open（否则可能需要 CLI pairing）`)
+  }
+
+  let daemon = 'unknown'
+  let runtimeMode = 'daemon'
+  try {
+    const daemonResult = await runOc(['daemon', 'status', '--json'], {
+      timeoutMs: OC_TIMEOUT.STATUS,
+      opName: 'daemon status',
+    })
+    daemon = parseDaemonStateFromResult(daemonResult)
+  } catch {
+    daemon = 'unknown'
+  }
+
+  if (daemon !== 'running') {
+    try {
+      if (await isPortBusy(GATEWAY_PORT)) {
+        daemon = 'running'
+        runtimeMode = 'gateway-fallback'
+      } else {
+        runtimeMode = 'stopped'
+      }
+    } catch {
+      runtimeMode = 'unknown'
+    }
+  }
+
+  if (daemon === 'running') {
+    checks.push('gateway 运行中')
+    if (runtimeMode === 'gateway-fallback') {
+      warnings.push('当前为 Windows fallback runtime（非 daemon 服务）')
+    }
+  } else {
+    warnings.push(`daemon 当前状态：${daemon}`)
+  }
+
+  let probeCode = null
+  let probeSummary = ''
+  try {
+    const probeResult = await runOc(
+      ['channels', 'status', '--probe', '--timeout', '12000'],
+      {
+        timeoutMs: OC_TIMEOUT.CHANNEL_PROBE,
+        opName: 'channels status --probe',
+      }
+    )
+    probeCode = probeResult.code
+    probeSummary = compactProbeOutput(
+      `${probeResult.stdout}\n${probeResult.stderr}`,
+      [botId, secret]
+    )
+  } catch (e) {
+    probeSummary = `probe 执行异常: ${e?.message ?? String(e)}`
+  }
+
+  const summaryLower = probeSummary.toLowerCase()
+  if (summaryLower.includes('gateway token mismatch')) {
+    warnings.push('检测到 gateway token mismatch：当前端口可能被旧 daemon 占用，请先执行“快速清理/全量重置”再重试')
+  }
+  if (
+    (summaryLower.includes('gateway not reachable') || summaryLower.includes('connect failed'))
+    && daemon !== 'running'
+  ) {
+    warnings.push('Gateway 不可达，请确认服务已启动且 18889 端口被当前 profile 占用')
+  }
+  const hasWecomAuthContext =
+    summaryLower.includes('channels.wecom')
+    || summaryLower.includes('wecom:')
+    || summaryLower.includes('qywx:')
+    || summaryLower.includes('enterprise wechat')
+
+  if (
+    hasWecomAuthContext
+    && (
+      summaryLower.includes('status code 401')
+      || summaryLower.includes('invalid credential')
+      || summaryLower.includes('invalid secret')
+      || summaryLower.includes('unauthorized')
+    )
+  ) {
+    warnings.push('企业微信返回鉴权错误，请检查 Bot ID / Secret 与后台权限配置后重试')
+  }
+
+  if (
+    summaryLower.includes('wecom')
+    && (summaryLower.includes('enabled, configured') || summaryLower.includes('已配置'))
+  ) {
+    checks.push('channels status 已识别企业微信为 configured')
+  }
+
+  const status = errors.length > 0 ? 'error' : warnings.length > 0 ? 'warning' : 'ok'
+  return {
+    status,
+    ready: status === 'ok',
+    daemon,
+    checks,
+    warnings,
+    errors,
+    probe: {
+      code: probeCode,
+      summary: probeSummary,
+    },
+  }
 }
 
 /**
@@ -841,7 +1205,11 @@ async function handleInstall(res, body) {
       if (!String(ch.clientId ?? '').trim()) inputErrors.push('钉钉 Client ID 不能为空')
       if (!String(ch.clientSecret ?? '').trim()) inputErrors.push('钉钉 Client Secret 不能为空')
     } else if (type === 'wecom') {
-      if (!String(ch.botId ?? '').trim()) inputErrors.push('企业微信 Bot ID 不能为空')
+      const botId = String(ch.botId ?? '').trim()
+      if (!botId) inputErrors.push('企业微信 Bot ID 不能为空')
+      if (botId && !isLikelyWecomBotId(botId)) {
+        inputErrors.push('企业微信 Bot ID 格式疑似错误，请填写智能机器人（API+长连接）生成的 Bot ID（通常以 aib 或 aib_ 开头）')
+      }
       if (!String(ch.secret ?? '').trim()) inputErrors.push('企业微信 Secret 不能为空')
     }
   }
@@ -879,6 +1247,15 @@ async function handleInstall(res, body) {
       opName: 'plugins install @openclaw-china/channels',
     })
     if (r.code !== 0) errors.push(`plugin install failed: ${r.stderr}`)
+    if (r.code === 0) {
+      const enableEntry = await runOc(['config', 'set', 'plugins.entries.channels.enabled', 'true', '--strict-json'], {
+        timeoutMs: OC_TIMEOUT.CONFIG_SET,
+        opName: 'config set plugins.entries.channels.enabled',
+      })
+      if (enableEntry.code !== 0) {
+        errors.push(`config set plugins.entries.channels.enabled failed: ${enableEntry.stderr}`)
+      }
+    }
   }
 
   // Step 2: Write base gateway config
@@ -975,10 +1352,39 @@ async function handleInstall(res, body) {
     warnings.push('Windows current permission blocks schtasks; running gateway in background fallback mode.')
   }
 
+  const hasDingtalk = channels.some((ch) => ch.type === 'dingtalk')
+  const hasWecom = channels.some((ch) => ch.type === 'wecom')
+  let dingtalkProbe = null
+  let wecomProbe = null
+  if (hasDingtalk) {
+    try {
+      dingtalkProbe = await buildDingtalkProbeReport()
+      if (dingtalkProbe.status === 'warning') {
+        warnings.push(...dingtalkProbe.warnings.map(msg => `钉钉检测告警：${msg}`))
+      } else if (dingtalkProbe.status === 'error') {
+        warnings.push(...dingtalkProbe.errors.map(msg => `钉钉检测错误：${msg}`))
+      }
+    } catch (e) {
+      warnings.push(`钉钉检测执行失败：${e?.message ?? String(e)}`)
+    }
+  }
+  if (hasWecom) {
+    try {
+      wecomProbe = await buildWecomProbeReport()
+      if (wecomProbe.status === 'warning') {
+        warnings.push(...wecomProbe.warnings.map(msg => `企微检测告警：${msg}`))
+      } else if (wecomProbe.status === 'error') {
+        warnings.push(...wecomProbe.errors.map(msg => `企微检测错误：${msg}`))
+      }
+    } catch (e) {
+      warnings.push(`企微检测执行失败：${e?.message ?? String(e)}`)
+    }
+  }
+
   if (errors.length > 0) {
-    sendJson(res, 500, { ok: false, errors, warnings, runtimeMode })
+    sendJson(res, 500, { ok: false, errors, warnings, runtimeMode, dingtalkProbe, wecomProbe })
   } else {
-    sendJson(res, 200, { ok: true, warnings, runtimeMode })
+    sendJson(res, 200, { ok: true, warnings, runtimeMode, dingtalkProbe, wecomProbe })
   }
 }
 
@@ -1018,6 +1424,11 @@ async function configureChannel(channel) {
       await oc('channels.dingtalk.enabled',                          'true')
       await oc('channels.dingtalk.clientId',                         JSON.stringify(clientId))
       await oc('channels.dingtalk.clientSecret',                     JSON.stringify(clientSecret))
+      await oc('channels.dingtalk.connectionMode',                   '"stream"')
+      await oc('channels.dingtalk.dmPolicy',                         '"open"')
+      await oc('channels.dingtalk.allowFrom',                        '["*"]')
+      await oc('channels.dingtalk.groupPolicy',                      '"open"')
+      await oc('channels.dingtalk.requireMention',                   'true')
       await oc('gateway.http.endpoints.chatCompletions.enabled',     'true')
       break
     }
@@ -1028,6 +1439,10 @@ async function configureChannel(channel) {
       await oc('channels.wecom.mode',    '"ws"')
       await oc('channels.wecom.botId',   JSON.stringify(botId))
       await oc('channels.wecom.secret',  JSON.stringify(secret))
+      await oc('channels.wecom.dmPolicy',      '"open"')
+      await oc('channels.wecom.allowFrom',     '["*"]')
+      await oc('channels.wecom.groupPolicy',   '"open"')
+      await oc('channels.wecom.requireMention','true')
       break
     }
 
@@ -1140,6 +1555,17 @@ function handleGetChannels(res) {
 /** POST /api/config/channels */
 async function handleUpdateChannel(res, body) {
   const errors = []
+
+  if (body?.type === 'wecom' && body?.enabled !== false) {
+    const botId = String(body?.botId ?? '').trim()
+    if (botId && !isLikelyWecomBotId(botId)) {
+      sendJson(res, 400, {
+        ok: false,
+        errors: ['企业微信 Bot ID 格式疑似错误，请填写智能机器人（API+长连接）生成的 Bot ID（通常以 aib 或 aib_ 开头）'],
+      })
+      return
+    }
+  }
 
   // Handle enabled toggle — if explicitly set to false, just disable the channel
   if (body.enabled === false) {
@@ -1383,6 +1809,44 @@ async function handleFactoryReset(res, body) {
   sendJson(res, errors.length > 0 ? 500 : 200, payload)
 }
 
+/** POST /api/dingtalk/probe */
+async function handleDingtalkProbe(res) {
+  try {
+    const report = await buildDingtalkProbeReport()
+    sendJson(res, 200, { ok: true, ...report })
+  } catch (e) {
+    sendJson(res, 200, {
+      ok: false,
+      status: 'error',
+      ready: false,
+      daemon: 'unknown',
+      checks: [],
+      warnings: [],
+      errors: [`钉钉检测失败：${e?.message ?? String(e)}`],
+      probe: { code: null, summary: '' },
+    })
+  }
+}
+
+/** POST /api/wecom/probe */
+async function handleWecomProbe(res) {
+  try {
+    const report = await buildWecomProbeReport()
+    sendJson(res, 200, { ok: true, ...report })
+  } catch (e) {
+    sendJson(res, 200, {
+      ok: false,
+      status: 'error',
+      ready: false,
+      daemon: 'unknown',
+      checks: [],
+      warnings: [],
+      errors: [`企微检测失败：${e?.message ?? String(e)}`],
+      probe: { code: null, summary: '' },
+    })
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main request router
 // ---------------------------------------------------------------------------
@@ -1477,6 +1941,16 @@ async function requestHandler(req, res) {
     if (method === 'POST' && pathname === '/api/reset') {
       const body = await readBody(req)
       await handleFactoryReset(res, body)
+      return
+    }
+
+    if (method === 'POST' && pathname === '/api/dingtalk/probe') {
+      await handleDingtalkProbe(res)
+      return
+    }
+
+    if (method === 'POST' && pathname === '/api/wecom/probe') {
+      await handleWecomProbe(res)
       return
     }
 

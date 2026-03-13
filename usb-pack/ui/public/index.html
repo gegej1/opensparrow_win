@@ -366,6 +366,11 @@
             <div class="info-box mb-4">
               在钉钉开放平台创建企业内部应用，添加机器人能力，消息接收模式选 Stream 模式
             </div>
+            <ul class="text-xs mb-3 list-disc pl-5" style="color:#6B7A99">
+              <li>机器人能力已开启，消息接收方式为 Stream。</li>
+              <li>事件订阅已勾选消息接收相关事件，并已保存。</li>
+              <li>后台改配置后，务必发布最新应用版本再测试。</li>
+            </ul>
             <div class="space-y-4">
               <div>
                 <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppKey</label>
@@ -391,18 +396,24 @@
                 <span class="text-2xl">💼</span>
                 <h3 class="font-bold" style="color:#1D2B4E">企业微信</h3>
               </div>
-              <a href="https://work.weixin.qq.com/wework_admin/frame" target="_blank" class="text-xs link-gold flex items-center gap-1">
+              <a href="https://work.weixin.qq.com/nl/index/openclaw" target="_blank" class="text-xs link-gold flex items-center gap-1">
                 如何获取？ ↗
               </a>
             </div>
             <div class="info-box mb-4">
-              在企微管理后台 → 应用管理 → 智能机器人，创建应用选 API 模式 + 长连接
+              在企微智能机器人页面创建 API 模式 + 长连接机器人，填写机器人 Bot ID + Secret
             </div>
+            <ul class="text-xs mb-3 list-disc pl-5" style="color:#6B7A99">
+              <li>机器人模式选择 API + 长连接，状态为启用。</li>
+              <li>Bot ID 通常以 <code>aib</code> 或 <code>aib_</code> 开头；不要填写 corpId 或自建应用 Secret。</li>
+              <li>企微后台事件权限和可见范围已完成配置。</li>
+              <li>变更权限后，重新保存并重启服务后再验证消息。</li>
+            </ul>
             <div class="space-y-4">
               <div>
                 <label class="block text-sm font-medium mb-1" style="color:#6B7A99">Bot ID</label>
                 <input type="text" x-model="credentials.wecom.botId"
-                       placeholder="ww_xxxxxxxxxxxxxxxx"
+                       placeholder="aibxxxxxxxxxxxxxxxx"
                        class="step-input" />
               </div>
               <div>
@@ -705,6 +716,10 @@
           return parts.join('\n');
         },
 
+        isLikelyWecomBotId(value) {
+          return /^aib(?:[_-]?[A-Za-z0-9][A-Za-z0-9._-]*)$/i.test(String(value || '').trim());
+        },
+
         isInstallTimeoutLike(errorText) {
           const text = String(errorText || '');
           const timeoutLike = /(timed out|timeout|health\s*check)/i.test(text);
@@ -735,6 +750,17 @@
         },
 
         async startInstall() {
+          if (this.selectedChannels.includes('wecom')) {
+            const botId = String(this.credentials.wecom?.botId || '').trim();
+            if (botId && !this.isLikelyWecomBotId(botId)) {
+              this.installStarted = false;
+              this.installDone = false;
+              this.installError = true;
+              this.installErrorMsg = '企业微信 Bot ID 格式疑似错误，请填写智能机器人（API+长连接）生成的 Bot ID（通常以 aib 或 aib_ 开头）';
+              return;
+            }
+          }
+
           this.installStarted = true;
           this.installError = false;
           this.installErrorMsg = '';
