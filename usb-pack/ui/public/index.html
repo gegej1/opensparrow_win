@@ -367,21 +367,35 @@
               在钉钉开放平台创建企业内部应用，添加机器人能力，消息接收模式选 Stream 模式
             </div>
             <ul class="text-xs mb-3 list-disc pl-5" style="color:#6B7A99">
+              <li>CorpId（企业 ID）来自开放平台应用详情页。</li>
+              <li>AppKey（Client ID）与发送接口中的 Robot Code 使用同一值。</li>
               <li>机器人能力已开启，消息接收方式为 Stream。</li>
               <li>事件订阅已勾选消息接收相关事件，并已保存。</li>
               <li>后台改配置后，务必发布最新应用版本再测试。</li>
             </ul>
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppKey</label>
-                <p class="text-xs mb-1" style="color:#6B7A99">即 clientId</p>
+                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">CorpId</label>
+                <input type="text" x-model="credentials.dingtalk.corpId"
+                       placeholder="dingxxxxxxxxxxxxxxxxxxxxxxxx"
+                       class="step-input" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppKey（Client ID / Robot Code）</label>
+                <p class="text-xs mb-1" style="color:#6B7A99">一次填写即可，系统会按同值处理 Robot Code</p>
                 <input type="text" x-model="credentials.dingtalk.clientId"
                        placeholder="dingxxxxxxxxxxxxxxxx"
                        class="step-input" />
               </div>
               <div>
-                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppSecret</label>
-                <p class="text-xs mb-1" style="color:#6B7A99">即 clientSecret</p>
+                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">Robot Code（可单独填）</label>
+                <p class="text-xs mb-1" style="color:#6B7A99">若不填，默认复用 AppKey；若填写则优先使用该值</p>
+                <input type="text" x-model="credentials.dingtalk.robotCode"
+                       placeholder="dingxxxxxxxxxxxxxxxx"
+                       class="step-input" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppSecret（Client Secret）</label>
                 <input type="password" x-model="credentials.dingtalk.clientSecret"
                        placeholder="••••••••••••••••"
                        class="step-input" />
@@ -615,7 +629,7 @@
 
         credentials: {
           feishu:   { appId: '', appSecret: '' },
-          dingtalk: { clientId: '', clientSecret: '' },
+          dingtalk: { corpId: '', clientId: '', robotCode: '', clientSecret: '' },
           wecom:    { botId: '', secret: '' },
         },
 
@@ -750,6 +764,20 @@
         },
 
         async startInstall() {
+          if (this.selectedChannels.includes('dingtalk')) {
+            const corpId = String(this.credentials.dingtalk?.corpId || '').trim();
+            const clientId = String(this.credentials.dingtalk?.clientId || '').trim();
+            const robotCode = String(this.credentials.dingtalk?.robotCode || '').trim();
+            const clientSecret = String(this.credentials.dingtalk?.clientSecret || '').trim();
+            if (!corpId || (!clientId && !robotCode) || !clientSecret) {
+              this.installStarted = false;
+              this.installDone = false;
+              this.installError = true;
+              this.installErrorMsg = '钉钉需要填写 3 项：CorpId、AppKey（Client ID/Robot Code）、AppSecret';
+              return;
+            }
+          }
+
           if (this.selectedChannels.includes('wecom')) {
             const botId = String(this.credentials.wecom?.botId || '').trim();
             if (botId && !this.isLikelyWecomBotId(botId)) {
@@ -777,6 +805,13 @@
             channels: this.selectedChannels.map(key => ({
               type: key,
               ...this.credentials[key],
+              ...(key === 'dingtalk'
+                ? {
+                    corpId: this.credentials.dingtalk.corpId,
+                    clientId: this.credentials.dingtalk.clientId || this.credentials.dingtalk.robotCode,
+                    robotCode: this.credentials.dingtalk.robotCode || this.credentials.dingtalk.clientId,
+                  }
+                : {}),
             })),
             api: this.apiConfig,
           };

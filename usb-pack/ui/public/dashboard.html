@@ -344,12 +344,23 @@
               在钉钉开放平台创建企业内部应用，添加机器人能力，消息接收模式选 Stream 模式
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppKey（clientId）</label>
-              <input type="text" x-model="modal.fields.clientId" placeholder="dingxxxxxxxxxxxxxxxx"
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">CorpId</label>
+              <input type="text" x-model="modal.fields.corpId" placeholder="dingxxxxxxxxxxxxxxxxxxxxxxxx"
                      class="light-input" />
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppSecret（clientSecret）</label>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppKey（Client ID / Robot Code）</label>
+              <input type="text" x-model="modal.fields.clientId" placeholder="dingxxxxxxxxxxxxxxxx"
+                     class="light-input" />
+              <p class="text-xs mt-1" style="color:#8AA0C5">Robot Code 与 AppKey 同值，无需单独填写。</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">Robot Code（可选单独填）</label>
+              <input type="text" x-model="modal.fields.robotCode" placeholder="dingxxxxxxxxxxxxxxxx"
+                     class="light-input" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1" style="color:#6B7A99">AppSecret（Client Secret）</label>
               <input type="password" x-model="modal.fields.clientSecret" placeholder="••••••••••••••••"
                      class="light-input" />
             </div>
@@ -682,7 +693,7 @@
             icon: '📎',
             name: '钉钉',
             enabled: false,
-            fields: { clientId: '', clientSecret: '' },
+            fields: { corpId: '', clientId: '', robotCode: '', clientSecret: '' },
             summaryFields: [],
           },
           {
@@ -794,7 +805,9 @@
                   card.fields.appId     = ch.appId     || '';
                   card.fields.appSecret = ch.appSecret || '';
                 } else if (card.key === 'dingtalk') {
+                  card.fields.corpId       = ch.corpId       || '';
                   card.fields.clientId     = ch.clientId     || '';
+                  card.fields.robotCode    = ch.robotCode    || ch.clientId || '';
                   card.fields.clientSecret = ch.clientSecret || '';
                 } else if (card.key === 'wecom') {
                   card.fields.botId  = ch.botId  || '';
@@ -828,7 +841,9 @@
           }
           if (channelKey === 'dingtalk') {
             return [
-              { label: 'AppKey',    value: mask(fields.clientId) },
+              { label: 'CorpId', value: mask(fields.corpId) },
+              { label: 'AppKey', value: mask(fields.clientId || fields.robotCode) },
+              { label: 'RobotCode', value: mask(fields.robotCode || fields.clientId) },
               { label: 'AppSecret', value: mask(fields.clientSecret) },
             ];
           }
@@ -1023,19 +1038,34 @@
           this.modal.saving = true;
           const ch = this.channelCards.find(c => c.key === this.modal.channel);
           try {
+            const payloadFields = { ...this.modal.fields };
+            if (this.modal.channel === 'dingtalk') {
+              const corpId = String(payloadFields.corpId || '').trim();
+              const clientId = String(payloadFields.clientId || '').trim();
+              const robotCode = String(payloadFields.robotCode || '').trim();
+              const clientSecret = String(payloadFields.clientSecret || '').trim();
+              if (!corpId || (!clientId && !robotCode) || !clientSecret) {
+                this.showToast('钉钉需要填写 3 项：CorpId、AppKey（Client ID/Robot Code）、AppSecret', 'error');
+                return;
+              }
+              payloadFields.corpId = corpId;
+              payloadFields.clientId = clientId || robotCode;
+              payloadFields.robotCode = robotCode || clientId;
+              payloadFields.clientSecret = clientSecret;
+            }
             const res = await this.fetchWithTimeout('/api/config/channels', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 type: this.modal.channel,
                 enabled: ch ? ch.enabled : true,
-                ...this.modal.fields,
+                ...payloadFields,
               }),
             }, this.requestTimeout.save);
             if (res.ok) {
               // Update local card fields and summaries
               if (ch) {
-                Object.assign(ch.fields, this.modal.fields);
+                Object.assign(ch.fields, payloadFields);
                 ch.summaryFields = this.buildSummaryFields(ch.key, ch.fields);
               }
               this.closeModal();

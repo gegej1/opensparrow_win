@@ -21,6 +21,7 @@ const OC_ENTRY  = path.join(PACK_ROOT, 'runtime/openclaw/openclaw.mjs')
 const PROFILE   = process.env.OPENCLAW_PROFILE ?? 'usb-portable'
 const PROFILE_DIR = path.join(os.homedir(), `.openclaw-${PROFILE}`)
 const CONFIG_FILE = path.join(PROFILE_DIR, 'openclaw.json')
+const UI_META_FILE = path.join(PROFILE_DIR, 'ui-meta.json')
 const WORKSPACE_DIR = path.join(PROFILE_DIR, 'workspace')
 const PUBLIC_DIR  = path.join(__dirname, 'public')
 
@@ -267,6 +268,126 @@ function normalizeOpenAIBaseUrl(rawInput, fallback = 'https://api.openai.com/v1'
 }
 
 /**
+ * Normalize DingTalk credentials from UI aliases.
+ * Accepts:
+ * - clientId / appKey / robotCode (same source value)
+ * - corpId / cropId
+ * - clientSecret / appSecret
+ * @param {any} raw
+ * @returns {{clientId: string, clientSecret: string, robotCode: string, corpId: string}}
+ */
+function normalizeDingtalkCredentials(raw) {
+  const data = raw && typeof raw === 'object' ? raw : {}
+  const rawClientId = String(
+    data.clientId ?? data.appKey ?? ''
+  ).trim()
+  const rawRobotCode = String(
+    data.robotCode ?? ''
+  ).trim()
+  const clientId = rawClientId || rawRobotCode
+  const clientSecret = String(
+    data.clientSecret ?? data.appSecret ?? ''
+  ).trim()
+  const corpId = String(
+    data.corpId ?? data.cropId ?? ''
+  ).trim()
+  return {
+    clientId,
+    clientSecret,
+    robotCode: rawRobotCode || rawClientId,
+    corpId,
+  }
+}
+
+/**
+ * Read UI-only metadata (safe, never throws).
+ * @returns {Record<string, any>}
+ */
+function readUiMetaSafe() {
+  try {
+    if (!fs.existsSync(UI_META_FILE)) return {}
+    const raw = fs.readFileSync(UI_META_FILE, 'utf8')
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Persist UI-only metadata (safe, never throws).
+ * @param {Record<string, any>} meta
+ */
+function writeUiMetaSafe(meta) {
+  try {
+    fs.mkdirSync(PROFILE_DIR, { recursive: true })
+    fs.writeFileSync(UI_META_FILE, JSON.stringify(meta, null, 2), 'utf8')
+  } catch {}
+}
+
+/**
+ * Read saved DingTalk UI meta fields.
+ * @returns {{corpId: string, robotCode: string}}
+ */
+function getDingtalkUiMeta() {
+  const uiMeta = readUiMetaSafe()
+  const dingtalk = uiMeta?.dingtalk && typeof uiMeta.dingtalk === 'object'
+    ? uiMeta.dingtalk
+    : {}
+  return {
+    corpId: String(dingtalk.corpId ?? dingtalk.cropId ?? '').trim(),
+    robotCode: String(dingtalk.robotCode ?? '').trim(),
+  }
+}
+
+/**
+ * Save DingTalk UI-only fields such as corpId/robotCode.
+ * @param {{corpId?: string, robotCode?: string}} patch
+ */
+function saveDingtalkUiMeta(patch = {}) {
+  try {
+    const current = readUiMetaSafe()
+    const currentMeta = current?.dingtalk && typeof current.dingtalk === 'object'
+      ? current.dingtalk
+      : {}
+    const corpId = String(
+      patch.corpId ?? patch.cropId ?? currentMeta.corpId ?? ''
+    ).trim()
+    const robotCode = String(
+      patch.robotCode ?? currentMeta.robotCode ?? ''
+    ).trim()
+    const next = {
+      ...current,
+      dingtalk: {
+        ...currentMeta,
+        ...(corpId ? { corpId } : {}),
+        ...(robotCode ? { robotCode } : {}),
+      },
+    }
+    writeUiMetaSafe(next)
+  } catch {}
+}
+
+/**
+ * Merge UI meta back into DingTalk channel payload for frontend forms.
+ * @param {any} channelCfg
+ * @returns {any}
+ */
+function enrichDingtalkChannelForUi(channelCfg) {
+  if (!channelCfg || typeof channelCfg !== 'object') return channelCfg
+  const meta = getDingtalkUiMeta()
+  const clientId = String(channelCfg.clientId ?? '').trim()
+  const robotCode = String(channelCfg.robotCode ?? '').trim() || meta.robotCode || clientId
+  const corpId = String(channelCfg.corpId ?? channelCfg.cropId ?? '').trim() || meta.corpId
+
+  return {
+    ...channelCfg,
+    robotCode,
+    ...(corpId ? { corpId } : {}),
+  }
+}
+
+/**
  * Check whether a value looks like WeCom smart-bot Bot ID.
  * Official examples currently use `aib...` or `aib_...`.
  * @param {string | null | undefined} raw
@@ -435,8 +556,9 @@ async function buildDingtalkProbeReport() {
   const hasChannelConfig = Boolean(config?.channels?.dingtalk && typeof config.channels.dingtalk === 'object')
   const dingtalk = hasChannelConfig ? config.channels.dingtalk : {}
   const enabled = hasChannelConfig && dingtalk?.enabled !== false
-  const clientId = String(dingtalk?.clientId ?? '').trim()
-  const clientSecret = String(dingtalk?.clientSecret ?? '').trim()
+  const { clientId, clientSecret, corpId } = normalizeDingtalkCredentials(dingtalk)
+  const uiMeta = getDingtalkUiMeta()
+  const effectiveCorpId = corpId || uiMeta.corpId
 
   if (!config) {
     errors.push('配置文件不存在或不可读，请先完成安装')
@@ -454,6 +576,12 @@ async function buildDingtalkProbeReport() {
     errors.push('钉钉 AppKey/AppSecret 缺失，请先填写并保存')
   } else {
     checks.push('钉钉凭证字段已写入')
+  }
+
+  if (!effectiveCorpId) {
+    warnings.push('钉钉 CorpId 未填写：建议在 UI 中补齐，便于按官方文档对照排查')
+  } else {
+    checks.push('钉钉 CorpId 已填写')
   }
 
   let daemon = 'unknown'
@@ -1232,8 +1360,10 @@ async function handleInstall(res, body) {
       if (!String(ch.appId ?? '').trim()) inputErrors.push('飞书 App ID 不能为空')
       if (!String(ch.appSecret ?? '').trim()) inputErrors.push('飞书 App Secret 不能为空')
     } else if (type === 'dingtalk') {
-      if (!String(ch.clientId ?? '').trim()) inputErrors.push('钉钉 Client ID 不能为空')
-      if (!String(ch.clientSecret ?? '').trim()) inputErrors.push('钉钉 Client Secret 不能为空')
+      const { clientId, clientSecret, corpId } = normalizeDingtalkCredentials(ch)
+      if (!corpId) inputErrors.push('钉钉 CorpId 不能为空')
+      if (!clientId) inputErrors.push('钉钉 AppKey（Client ID / Robot Code）不能为空')
+      if (!clientSecret) inputErrors.push('钉钉 AppSecret（Client Secret）不能为空')
     } else if (type === 'wecom') {
       const botId = String(ch.botId ?? '').trim()
       if (!botId) inputErrors.push('企业微信 Bot ID 不能为空')
@@ -1450,7 +1580,7 @@ async function configureChannel(channel) {
     }
 
     case 'dingtalk': {
-      const { clientId = '', clientSecret = '' } = channel
+      const { clientId, clientSecret, robotCode, corpId } = normalizeDingtalkCredentials(channel)
       await oc('channels.dingtalk.enabled',                          'true')
       await oc('channels.dingtalk.clientId',                         JSON.stringify(clientId))
       await oc('channels.dingtalk.clientSecret',                     JSON.stringify(clientSecret))
@@ -1460,6 +1590,9 @@ async function configureChannel(channel) {
       await oc('channels.dingtalk.groupPolicy',                      '"open"')
       await oc('channels.dingtalk.requireMention',                   'true')
       await oc('gateway.http.endpoints.chatCompletions.enabled',     'true')
+      if (corpId || robotCode) {
+        saveDingtalkUiMeta({ corpId, robotCode })
+      }
       break
     }
 
@@ -1487,7 +1620,11 @@ async function configureChannel(channel) {
 function handleGetConfig(res) {
   try {
     const raw = fs.readFileSync(CONFIG_FILE, 'utf8')
-    sendJson(res, 200, JSON.parse(raw))
+    const config = JSON.parse(raw)
+    if (config?.channels?.dingtalk && typeof config.channels.dingtalk === 'object') {
+      config.channels.dingtalk = enrichDingtalkChannelForUi(config.channels.dingtalk)
+    }
+    sendJson(res, 200, config)
   } catch (e) {
     sendJson(res, 404, { error: `Cannot read config: ${e.message}` })
   }
@@ -1576,7 +1713,11 @@ function handleGetChannels(res) {
   try {
     const raw = fs.readFileSync(CONFIG_FILE, 'utf8')
     const config = JSON.parse(raw)
-    sendJson(res, 200, config.channels ?? {})
+    const channels = config.channels ?? {}
+    if (channels?.dingtalk && typeof channels.dingtalk === 'object') {
+      channels.dingtalk = enrichDingtalkChannelForUi(channels.dingtalk)
+    }
+    sendJson(res, 200, channels)
   } catch (e) {
     sendJson(res, 404, { error: `Cannot read config: ${e.message}` })
   }
@@ -1593,6 +1734,17 @@ async function handleUpdateChannel(res, body) {
         ok: false,
         errors: ['企业微信 Bot ID 格式疑似错误，请填写智能机器人（API+长连接）生成的 Bot ID（通常以 aib 或 aib_ 开头）'],
       })
+      return
+    }
+  }
+  if (body?.type === 'dingtalk' && body?.enabled !== false) {
+    const { clientId, clientSecret, corpId } = normalizeDingtalkCredentials(body)
+    const inputErrors = []
+    if (!corpId) inputErrors.push('钉钉 CorpId 不能为空')
+    if (!clientId) inputErrors.push('钉钉 AppKey（Client ID / Robot Code）不能为空')
+    if (!clientSecret) inputErrors.push('钉钉 AppSecret（Client Secret）不能为空')
+    if (inputErrors.length > 0) {
+      sendJson(res, 400, { ok: false, errors: inputErrors })
       return
     }
   }
