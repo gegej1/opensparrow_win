@@ -749,6 +749,20 @@ function isDaemonNotInstalledIssue(detail) {
 }
 
 /**
+ * Whether daemon restart failure is timeout/health-check like.
+ * @param {string} detail
+ * @returns {boolean}
+ */
+function isRestartTimeoutLikeIssue(detail) {
+  const text = stripAnsi(detail).toLowerCase()
+  return (
+    text.includes('timed out') ||
+    text.includes('timeout') ||
+    text.includes('health check')
+  )
+}
+
+/**
  * Wait until a TCP port reaches the desired busy state.
  * @param {number} port
  * @param {boolean} targetBusy
@@ -838,6 +852,22 @@ async function restartGatewayRuntimeWithFallback() {
   if (r.code === 0) return { ok: true, mode: 'daemon' }
 
   const detail = summarizeOcIssue(r)
+
+  // Slow machines may hit restart timeout while gateway is already back online.
+  if (isRestartTimeoutLikeIssue(detail)) {
+    try {
+      if (await isPortBusy(GATEWAY_PORT)) {
+        return {
+          ok: true,
+          mode: 'daemon',
+          warning: `daemon restart timeout-like result ignored because gateway is reachable: ${detail}`,
+        }
+      }
+    } catch {
+      // ignore probing failure, continue with normal error flow
+    }
+  }
+
   const canFallback = process.platform === 'win32' && (
     isSchtasksPermissionDenied(detail) || isDaemonNotInstalledIssue(detail)
   )

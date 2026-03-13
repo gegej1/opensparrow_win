@@ -1042,7 +1042,8 @@
               this.showToast('配置已更新，服务将自动重启');
             } else {
               const err = await res.json().catch(() => ({}));
-              this.showToast(err.message || '保存失败', 'error');
+              const detail = err.message || (Array.isArray(err.errors) ? err.errors.join(' | ') : '');
+              this.showToast(detail || '保存失败', 'error');
             }
           } catch (e) {
             this.showToast('无法连接到服务', 'error');
@@ -1065,7 +1066,8 @@
               this.showToast('API 配置已保存');
             } else {
               const err = await res.json().catch(() => ({}));
-              this.showToast(err.message || '保存失败', 'error');
+              const detail = err.message || (Array.isArray(err.errors) ? err.errors.join(' | ') : '');
+              this.showToast(detail || '保存失败', 'error');
             }
           } catch (e) {
             this.showToast('无法连接到服务', 'error');
